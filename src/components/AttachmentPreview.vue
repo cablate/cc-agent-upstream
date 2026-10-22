@@ -19,7 +19,7 @@
      <template v-if="isImage&&!isText"><a class="image-action image-zoom-out" href="#" :class="{disabled:pinch.scale<=1}" :aria-label="ct('縮小')" :title="ct('縮小')" @click.prevent="zoomStep(-1)"><i class="icon f7-icons">minus_magnifyingglass</i></a><a class="image-action image-zoom-in" href="#" :class="{disabled:pinch.scale>=MAX_ZOOM}" :aria-label="ct('放大')" :title="ct('放大')" @click.prevent="zoomStep(1)"><i class="icon f7-icons">plus_magnifyingglass</i></a></template>
      <!-- An .html file opens as the page it is; the source is one click away. A file not sent yet has no address to frame. -->
      <a v-if="isHtml" class="image-action html-toggle" href="#" :aria-label="asPage?ct('看原始碼'):ct('看網頁')" :title="asPage?ct('看原始碼'):ct('看網頁')" @click.prevent="htmlSource=!htmlSource"><i class="icon f7-icons">{{asPage?'chevron_left_slash_chevron_right':'globe'}}</i></a>
-     <a v-if="!file.local" class="image-action external" :href="url" :download="file.name" target="_blank" rel="noopener" :aria-label="ct('下載檔案')" :title="ct('下載檔案')"><i class="icon f7-icons">arrow_down_circle</i></a>
+     <a v-if="!file.local" class="image-action external" :href="url" :download="file.name" target="_blank" rel="noopener" :aria-label="ct('下載檔案')" :title="ct('下載檔案')" @click="onSave"><i class="icon f7-icons">arrow_down_circle</i></a>
      <a class="image-action image-close" href="#" :aria-label="ct('關閉')" :title="ct('關閉')" @click.prevent="close"><i class="icon f7-icons">xmark</i></a>
     </header>
     <!-- A text file shows what it says, a markdown file set as the bubbles set it. -->
@@ -62,6 +62,7 @@ import {ref,reactive,computed,watch,nextTick,onBeforeUnmount,Teleport} from 'vue
 import {f7} from 'framework7-vue';
 import {ct} from '../js/agent-i18n.js';
 import {renderMarkdown} from '../js/markdown.js';
+import {saveFile as keepFile,sharesFiles} from '../js/saveFile.js';
 const props=defineProps({file:Object,conversationId:String});
 const imageUrl=ref(''),loading=ref(false),error=ref('');let controller;
 // A file chosen but not sent yet is previewed from the device itself (file.local): nothing is fetched and there is nothing to download.
@@ -224,9 +225,10 @@ function measure(event){
 }
 function toggle(){if(actual.value||zoomable.value)actual.value=!actual.value;}
 const escapeHtml=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-// Marked external, or Framework7 takes the click for a page of its own and nothing
-// downloads (下載檔案 in this dialog did nothing).
-function saveFile(){const a=document.createElement('a');a.className='external';a.href=url.value;a.download=props.file.name;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();}
+// A download, or on an iPhone home-screen app the share sheet (saveFile.js).
+function saveFile(){keepFile(url.value,props.file.name,{confirm:askShare});}
+function onSave(event){if(!sharesFiles())return;event.preventDefault();saveFile();}
+function askShare(run){f7.dialog.create({title:escapeHtml(props.file.name),text:ct('檔案準備好了'),buttons:[{text:ct('取消')},{text:ct('儲存或分享'),bold:true,onClick:run}]}).open();}
 let dialog=null;
 watch(()=>props.file,file=>{
  dialog?.close();dialog=null;

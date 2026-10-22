@@ -385,6 +385,8 @@ const english = {
 
  "關閉":"Close",
  "下載檔案":"Download file",
+ "檔案準備好了":"The file is ready",
+ "儲存或分享":"Save or share",
  "看原始碼":"Show source",
  "看網頁":"Show page",
  "無法預覽此圖片":"Unable to preview this image",
