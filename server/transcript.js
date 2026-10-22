@@ -338,10 +338,13 @@ function trackRelays(state, record) {
       // What SendMessage said about a send: one to another session names its address.
       if (block?.type === 'tool_result' && state.sends.has(block.tool_use_id)) {
         const use = state.sends.get(block.tool_use_id); state.sends.delete(block.tool_use_id);
-        const said = typeof block.content === 'string' ? block.content : JSON.stringify(block.content || '');
+        // The result comes as a string or as text blocks; read the text either way, so a
+        // refusal ({"success":false,...}) is seen as one. A send with no message is only
+        // an idle-notice subscription: nothing was said.
+        const said = typeof block.content === 'string' ? block.content : Array.isArray(block.content) ? block.content.map(b => typeof b?.text === 'string' ? b.text : '').join('\n') : JSON.stringify(block.content || '');
         const address = (said.match(/\b(uds:[^\s;"'\\]+)/) || [])[1] || (String(use.to).startsWith('uds:') ? use.to : '');
         const other = address || /another Claude session|Remote Control session|cloud session|cross-session/i.test(said);
-        if (other && !block.is_error && !/"success":false/.test(said)) keepRelay(state, 'out:' + block.tool_use_id, {key: 'out:' + block.tool_use_id, direction: 'out', from: address.slice(0, 300), name: String(use.to || '').slice(0, 120), text: String(use.message || '').slice(0, 20000), at, handed: true});
+        if (other && String(use.message || '').trim() && !block.is_error && !/"success"\s*:\s*false/.test(said)) keepRelay(state, 'out:' + block.tool_use_id, {key: 'out:' + block.tool_use_id, direction: 'out', from: address.slice(0, 300), name: String(use.to || '').slice(0, 120), text: String(use.message || '').slice(0, 20000), at, handed: true});
       }
     }
   }
