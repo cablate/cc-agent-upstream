@@ -8,7 +8,7 @@
          behind each name: the browser places it, so it stays with the text however
          the bar moves or scales. -->
     <div v-if="parts.some(x=>x.name)" ref="mirror" class="mention-mirror" aria-hidden="true" :style="mirrorBox"><template v-for="(x,i) in parts" :key="i"><span v-if="x.name" class="mention-capsule">{{x.text}}</span><template v-else>{{x.text}}</template></template></div>
-    <div ref="editor" id="cc-agent-prompt" class="chat-editor" contenteditable="plaintext-only"
+    <div ref="editor" :id="editorId||undefined" class="chat-editor" contenteditable="plaintext-only"
      role="textbox" aria-multiline="true" :aria-label="placeholder" :data-placeholder="placeholder"
      :data-empty="empty" dir="auto" autocomplete="off" inputmode="text" enterkeyhint="enter"
      autocorrect="on" autocapitalize="sentences" spellcheck="true"
@@ -22,7 +22,9 @@
 <script setup>
 import {ref,watch,onMounted,onBeforeUnmount,nextTick} from 'vue';
 import {paintMentions} from '../js/mentionHighlight.js';
-const props=defineProps({value:{type:String,default:''},placeholder:String,highlights:{type:Array,default:()=>[]}});
+// editorId: the conversation page's own box is #cc-agent-prompt; a split-view cell's
+// boxes, several on one page, have none.
+const props=defineProps({value:{type:String,default:''},placeholder:String,highlights:{type:Array,default:()=>[]},editorId:{type:String,default:'cc-agent-prompt'}});
 const emit=defineEmits(['update:value','keydown']);
 const editor=ref(null),area=ref(null),empty=ref(!props.value);
 let composing=false;

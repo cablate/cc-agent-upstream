@@ -7,8 +7,8 @@ import {agentActivity} from './agentActivity.js';
 import {measureComposer} from './conversationComposer.js';
 import {useAttachmentDrafts} from './attachmentDrafts.js';
 import {shouldSendOnEnter} from './chatKeyboard.js';
-import {ct,generation,duration} from './agent-i18n.js';
-import {estimatedCost} from './usageCost.js';
+import {ct,generation} from './agent-i18n.js';
+import * as agentOperation from './agentOperation.js';
 import * as status from './conversationStatus.js';
 import {useSlashMenu} from './slashMenu.js';
 import {useMentionMenu,caretToEnd} from './mentionMenu.js';
@@ -218,33 +218,10 @@ const checklistPopupOpen=computed(()=>checklistOpen.value&&!checklistPanelVisibl
 watch(checklistPanelVisible,open=>{if(!open)return;profilePanelOpen.value=false;searchOpen.value=false;if(inspectorOpen.value){inspectorOpen.value=false;clearInspection();}});
 watch(()=>[profilePanelOpen.value,searchPanelVisible.value,inspectorOpen.value],([p,s,i])=>{if((p||s||i)&&wideScreen.value)checklistOpen.value=false;});
 function toggleChecklist(){checklistOpen.value=!checklistOpen.value;}
-// Tokens are exact; the dollar figure is derived from them, so keep them together.
-const usageRows=computed(()=>{
- const u=detail.value?.usage;
- if(!u)return null;
- const n=x=>Number(x||0).toLocaleString('en-US');
- return {total:n(u.tokens.total),io:n(u.tokens.input)+' / '+n(u.tokens.output),cache:n(u.tokens.cacheRead)+' / '+n(u.tokens.cacheWrite),cost:estimatedCost(u,ct),turns:n(u.turns)};
-});
-const agentOperationTitle=computed(()=>ct(activity(detail.value)==='compact'?'正在整理對話記憶…':activity(detail.value)==='rotate'?'正在接續新 session…':'Claude agent 喚醒中…'));
-// Step marks: done / in progress / not started.
-const step=(done,active)=>done?'✓ ':active?'⋯ ':'○ ';
-const agentOperationSteps=computed(()=>{
- const op=operations.value[selected.value],d=detail.value;
- // Waking an agent — creating one, or reconnecting a stopped one — is only ever
- // locked in these two phases, so report them instead of only spinning. The
- // awaiting-workspace/confirmation gates deliberately do not lock the page.
- if(activity(d)==='start'){
-  const session=d.phase==='ready';
-  return [step(session,true)+ct('啟動 Claude session'),step(false,session)+ct('確認連線')];
- }
- // How long it has run; its percentage, from Claude Code's own screen, is a bar.
- if(activity(d)==='compact'){const since=Date.parse(d.compactingSince||'');return Number.isFinite(since)?[ct('已進行')+' '+duration(Math.max(0,Math.round((Date.now()-since)/1000)))]:[];}
- if(activity(d)!=='rotate'&&!(op&&d?.generation>op.generation))return [];
- const started=op?d?.generation>op.generation:d?.phase==='starting';
- return [(started?'✓ ':'⋯ ')+ct('整理並保存交接資料'),(started?'✓ ':'○ ')+ct('啟動新的 session'),(started?'⋯ ':'○ ')+ct('載入交接內容並確認連線')];
-});
-// A compaction's progress as Claude Code draws it in its terminal, read off that screen by the server; null until it shows.
-const agentOperationPercent=computed(()=>{const d=detail.value;return activity(d)==='compact'&&Number.isFinite(d?.compactPercent)?d.compactPercent:null;});
+const usageRows=computed(()=>agentOperation.usageRows(detail.value?.usage));
+const agentOperationTitle=computed(()=>agentOperation.operationTitle(activity(detail.value)));
+const agentOperationSteps=computed(()=>{const d=detail.value;return d?agentOperation.operationSteps(d,activity(d),operations.value[selected.value]):[];});
+const agentOperationPercent=computed(()=>agentOperation.operationPercent(detail.value,activity(detail.value)));
 function updateAgent(d){conversations.value=conversations.value.map(c=>c.id===d.id?{...c,...d}:c);if(selected.value===d.id)detail.value=d;}
 async function runAgentOperation(id,kind,body={}){
  if(operations.value[id])return;
@@ -254,17 +231,9 @@ async function runAgentOperation(id,kind,body={}){
  const token=Symbol();op.token=token;
  const current=()=>!disposed&&user.value?.id===owner&&operations.value[id]?.token===token;
  try{
-  const until=Date.now()+120000;
-  let d=await api('/conversations/'+id+'/'+kind,{method:'POST',body:JSON.stringify(body),signal:AbortSignal.timeout(15000)});
-  while(current()){
-   updateAgent(d);
-   if(['error','stopped','awaiting-workspace','awaiting-confirmation'].includes(d.phase))throw new Error(d.lastError||ct('Agent 尚未就緒，請稍後重新確認。'));
-   if(d.phase==='ready'&&d.connected&&!d.pendingRotation&&!d.compacting){if(d.lastError)operationErrors.value[id]=d.lastError;return d;}
-   if(Date.now()>=until)throw new Error(ct('操作等待逾時，請查看此 Agent 狀態後再操作。'));
-   await new Promise(resolve=>setTimeout(resolve,700));
-   if(!current())return;
-   d=await api('/conversations/'+id,{signal:AbortSignal.timeout(Math.min(15000,Math.max(1,until-Date.now())))});
-  }
+  const d=await agentOperation.settleOperation(id,kind,body,{current,update:updateAgent});
+  if(d?.lastError&&current())operationErrors.value[id]=d.lastError;
+  return d||undefined;
  }catch(e){if(current())operationErrors.value[id]=e.message;}
  finally{if(current())delete operations.value[id];}
 }
@@ -343,7 +312,7 @@ async function moveGroups(order){
 function deleteGroup(group){
  f7.dialog.confirm(ct('裡面的 Agent 會回到最上面，不會被刪除。'),ct('刪除群組')+'「'+escapeHtml(group.name)+'」',()=>saveGroups(listGroups.value.filter(g=>g.id!==group.id)));
 }
-const statusLabel=computed(()=>({'awaiting-workspace':ct("等待工作目錄確認"),'awaiting-confirmation':ct("等待本機 Channel 確認"),starting:ct("Claude agent 喚醒中"),ready:detail.value?.mode==='demo'?ct("模擬助手已就緒"):detail.value?.connected?ct("Claude 已連線"):ct("正在確認連線…"),busy:ct("正在思考與處理…"),stopped:ct("已暫停"),error:ct("需要重新連線"),'handing-off':ct("正在交接…")}[detail.value?.phase]||ct("準備中")));
+const statusLabel=computed(()=>agentOperation.statusLabel(detail.value));
 const awaitingReply=computed(()=>status.awaitingReply(detail.value));
 // The progress belongs in the typing bubble: that is where the eye already is,
 // it says plainly that this reply is being written, and putting it there stops
@@ -916,23 +885,10 @@ async function importHistory(){
  f7.toast.create({text,closeTimeout:2200}).open();
  if(added>0)await bottom();
 }
-// The agent's own picture, from Agent Profile. It
-// is cut to a centred square and shrunk before it leaves the device: 256 pixels is
-// more than anywhere shows it, and it keeps the upload far under the server's limit.
-// Anything the browser can draw is accepted here, a phone photo included; what
-// arrives is always a PNG.
-async function squarePicture(file){
- let bitmap;
- try{bitmap=await createImageBitmap(file);}catch{throw new Error(ct('無法讀取這張圖片'));}
- const side=Math.min(bitmap.width,bitmap.height),size=Math.min(256,side);
- const canvas=document.createElement('canvas');canvas.width=canvas.height=size;
- canvas.getContext('2d').drawImage(bitmap,(bitmap.width-side)/2,(bitmap.height-side)/2,side,side,0,0,size,size);
- bitmap.close?.();
- return new Promise((ok,no)=>canvas.toBlob(blob=>blob?ok(blob):no(new Error(ct('無法讀取這張圖片'))),'image/png'));
-}
+// The agent's own picture, cut to a small square first (js/agentOperation.js).
 async function uploadAvatar(file){
  const id=detail.value?.id;if(!file||!id)return;
- const d=await attempt(async()=>api('/conversations/'+id+'/avatar',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:await squarePicture(file)}));
+ const d=await attempt(async()=>api('/conversations/'+id+'/avatar',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:await agentOperation.squarePicture(file)}));
  if(d){updateAgent(d);f7.toast.create({text:ct('Agent 圖像已更新'),closeTimeout:1800}).open();}
 }
 function resetAvatar(){
@@ -940,11 +896,11 @@ function resetAvatar(){
  f7.dialog.confirm(ct('改回預設的 Agent 圖示？'),ct('還原預設圖像'),async()=>{const d=await attempt(()=>api('/conversations/'+id+'/avatar',{method:'DELETE'}));if(d)updateAgent(d);});
 }
 async function saveMemory(){if(await action('memory',{text:memoryDraft.value}))f7.toast.create({text:ct("記憶已保存"),closeTimeout:1800}).open();}
-const profileForSave=()=>({...profileDraft.value});
+const profileForSave=()=>agentOperation.followSetting(profileDraft.value);
 async function saveProfile(){if(profileSaving.value)return;profileSaving.value=true;const r=await action('profile',profileForSave());profileSaving.value=false;if(r){profileDraft.value={...profileDraft.value,profileVersion:r.profileVersion};infoOpen.value=false;f7.toast.create({text:ct('設定已保存'),closeTimeout:1800}).open();}}
 // The draft is taken when Agent Profile opens, in either form, and again when the
 // open panel moves to another agent — never on the 1.2 s refresh, which would undo typing.
-watch(()=>[infoOpen.value||profilePanelVisible.value,detail.value?.id],([open,id],[wasOpen,wasId]=[])=>{if(open&&detail.value&&(!wasOpen||id!==wasId)){profileDraft.value={title:detail.value.title,description:detail.value.description||'',memory:detail.value.memory||'',model:detail.value.model,effort:detail.value.effort,access:detail.value.access||{allow:[],exclude:[],domains:[]},profileVersion:detail.value.profileVersion};memoryDraft.value=detail.value.memory||'';error.value='';}},{immediate:true});
+watch(()=>[infoOpen.value||profilePanelVisible.value,detail.value?.id],([open,id],[wasOpen,wasId]=[])=>{if(open&&detail.value&&(!wasOpen||id!==wasId)){profileDraft.value=agentOperation.profileDraftOf(detail.value);memoryDraft.value=detail.value.memory||'';error.value='';}},{immediate:true});
 const time=s=>new Date(s).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
 // The conversation the page was opened on — a notification, or an address someone
 // kept — read once at load: the address is rewritten as the user moves around, so
