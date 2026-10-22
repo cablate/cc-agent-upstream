@@ -687,13 +687,15 @@ export function progressLine({tool, tools, seconds, total}) {
   return parts.join(' · ');
 }
 // Work still running in the background after the turn that started it: subagents
-// working on their own and commands sent to the background. One subagent is named by its task; the time is the longest-running.
-export function backgroundLine({subagents, commands, task, seconds}) {
+// working on their own and commands sent to the background. One subagent is named
+// by its task, one command by what it runs; the time is the longest-running.
+export function backgroundLine({subagents, commands, task, command = '', seconds}) {
   const zh = lang.value === 'zh-TW';
   const parts = [];
   if (subagents > 0) parts.push(zh ? `${subagents} 個 subagent 工作中${subagents === 1 && task ? `（${task}）` : ''}`
     : `${subagents} subagent${subagents === 1 ? '' : 's'} working${subagents === 1 && task ? ` (${task})` : ''}`);
-  if (commands > 0) parts.push(zh ? `${commands} 個背景指令執行中` : `${commands} background command${commands === 1 ? '' : 's'} running`);
+  if (commands > 0) parts.push(zh ? `${commands} 個背景指令執行中${commands === 1 && command ? `（${command}）` : ''}`
+    : `${commands} background command${commands === 1 ? '' : 's'} running${commands === 1 && command ? ` (${command})` : ''}`);
   if (!parts.length) return '';
   const line = (zh ? '背景：' : 'Background: ') + parts.join(zh ? '、' : ', ');
   return seconds !== null && seconds !== undefined ? line + ' · ' + duration(seconds) : line;

@@ -127,7 +127,11 @@ function trackBackground(state, record) {
       const id = started.resumedAgentId;
       state.background.set(id, {kind: 'subagent', description: state.subagents.get(id) || '', since: record.timestamp || null});
     } else if (typeof started.backgroundTaskId === 'string') {
-      state.background.set(started.backgroundTaskId, {kind: 'command', description: '', since: record.timestamp || null});
+      // Named by what the agent said it runs, so the owner sees which one is left
+      // running: agents forget to stop them.
+      const use = Array.isArray(record.message?.content) ? record.message.content.find(b => b?.type === 'tool_result')?.tool_use_id : null;
+      const description = state.running.get(use)?.command || '';
+      state.background.set(started.backgroundTaskId, {kind: 'command', description, since: record.timestamp || null});
     }
   }
   if (record.type === 'assistant' && Array.isArray(record.message?.content)) {
@@ -284,7 +288,10 @@ function absorb(state, record) {
         state.tools += 1;
         // A subagent working in the foreground is named by what it was sent to do.
         const detail = SUBAGENT_TOOLS.has(block.name) && typeof block.input?.description === 'string' ? block.input.description : null;
-        state.running.set(block.id, {name: block.name, detail, at: record.timestamp || null});
+        // A command is named by what the agent said it does, or else by itself, in
+        // case it goes on in the background.
+        const said = block.name === 'Bash' ? (typeof block.input?.description === 'string' && block.input.description.trim() ? block.input.description : String(block.input?.command || '')) : '';
+        state.running.set(block.id, {name: block.name, detail, at: record.timestamp || null, ...(said ? {command: said.replace(/\s+/g, ' ').trim().slice(0, 80)} : {})});
       }
     } else if (block.type === 'tool_result') state.running.delete(block.tool_use_id);
     // What the agent last wrote in its terminal between tools, which the page shows
@@ -478,13 +485,18 @@ function liveBackground(state, now = Date.now()) {
 
 // What the Agents list needs to know, reading only the current run's transcript:
 // whether Claude is in a turn, and how many jobs it left running in the background
-// (a subagent at work, and no spinner on the list).
+// (a subagent at work, and no spinner on the list); for the wrap-up check, how many
+// of them are subagents and which are commands.
 function currentWork(stateRoot, conversation) {
+  const none = {inTurn: false, background: 0, subagents: 0, commands: []};
   const run = (conversation?.runs || []).at(-1);
-  if (conversation?.mode !== 'claude' || !run) return {inTurn: false, background: 0};
+  if (conversation?.mode !== 'claude' || !run) return none;
   const file = locate(path.join(stateRoot, 'workspaces', conversation.id, 'g' + run.number), run.sessionId);
   const state = file ? read(file) : null;
-  return state ? {inTurn: inTurn(state), background: liveBackground(state).length} : {inTurn: false, background: 0};
+  if (!state) return none;
+  const jobs = liveBackground(state);
+  return {inTurn: inTurn(state), background: jobs.length, subagents: jobs.filter(j => j.kind === 'subagent').length,
+    commands: jobs.filter(j => j.kind === 'command').map(({description, since}) => ({description, since}))};
 }
 
 // When the usage limit that last stopped the current run resets: {at, seen} in ms.

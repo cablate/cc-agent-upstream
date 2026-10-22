@@ -60,6 +60,7 @@ export function backgroundText(d, {locked = false} = {}) {
   const jobs = Array.isArray(d.progress?.background) ? d.progress.background : [];
   const subagents = jobs.filter(j => j.kind === 'subagent');
   const starts = jobs.map(j => Date.parse(j.since || '')).filter(Number.isFinite);
-  return backgroundLine({subagents: subagents.length, commands: jobs.length - subagents.length, task: subagents[0]?.description || '',
+  const commands = jobs.filter(j => j.kind !== 'subagent');
+  return backgroundLine({subagents: subagents.length, commands: commands.length, task: subagents[0]?.description || '', command: commands[0]?.description || '',
     seconds: starts.length ? secondsSince(new Date(Math.min(...starts)).toISOString()) : null});
 }
