@@ -16,6 +16,8 @@
   <a href="README.md">English</a> · 繁體中文
 </p>
 
+https://github.com/user-attachments/assets/90a97af2-27d7-4e70-9ba4-fd4103b0bdb6
+
 <p align="center">
   <img src=".github/assets/screens/hero-dark.png" alt="CC Agent 在筆電與手機上">
 </p>
