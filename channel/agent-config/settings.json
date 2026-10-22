@@ -1,0 +1,7 @@
+{
+  "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
+  "permissions": {
+    "allow": []
+  }
+}

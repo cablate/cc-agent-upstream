@@ -1,0 +1,147 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/agent-emote-dark.gif">
+    <img src=".github/assets/agent-emote-light.gif" width="180" alt="CC Agent 角色">
+  </picture>
+</p>
+
+<h1 align="center">CC Agent</h1>
+
+<p align="center">
+  <b>把你的 Claude Code 訂閱，變成個人化的多 agent 工作平台。</b><br>
+  自己架設的 PWA，每個 agent 都是一個真正的 Claude Code session，在任何裝置上都能跟它對話。
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> · 繁體中文
+</p>
+
+<p align="center">
+  <img src=".github/assets/screens/hero-dark.png" alt="CC Agent 在筆電與手機上">
+</p>
+
+---
+
+## 這是什麼
+
+Claude Code 是很強的 agent，但它住在終端機裡。CC Agent 幫它蓋了一個家。
+
+CC Agent 跑在你自己的 Mac 上。你建立的每個 agent，都是 tmux 裡一個真正的 `claude` session，有自己的資料夾、自己的說明和自己的記憶。agent 透過 CC Agent 內建的 Executive MCP server 跟聊天室溝通，CC Agent 會自動幫每個 agent 設定好，不用另外安裝或設定。你可以在瀏覽器的聊天介面跟它們對話，也可以用裝在手機上的 App。關掉分頁，它們還是會繼續做事，做完會通知你。
+
+它用的是你已經裝好的 Claude Code，和你已經登入的訂閱。沒有額外的 API 費用，中間也沒有雲端服務。
+
+## 特色
+
+<table>
+<tr>
+<td width="25%" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/sticker-wave-dark.gif"><img src=".github/assets/sticker-wave-light.gif" width="120" alt=""></picture></td>
+<td><b>很多 agent，一個地方。</b>每個 agent 有自己的角色：一個管程式碼，一個處理信件，一個做研究。各自有工作資料夾、Agent Profile（用途、界線、目前狀態）和長期記憶，像通訊軟體裡的聊天室一樣切換。</td>
+</tr>
+<tr>
+<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/sticker-think-dark.gif"><img src=".github/assets/sticker-think-light.gif" width="120" alt=""></picture></td>
+<td><b>agent 之間可以合作。</b>把幾個 agent 放進群組，指定一個主負責，讓它們互傳訊息，在對話旁邊跟著同一份清單進行。排程可以在固定時間叫醒 agent、執行小型背景腳本，或把 RSS 的新文章帶給它。另有選用的自動收尾檢查，預設關閉，管理員可在管理頁開啟：agent 完成任務後，會請它確認工作已保存、筆記是最新的。</td>
+</tr>
+<tr>
+<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/sticker-work-dark.gif"><img src=".github/assets/sticker-work-light.gif" width="120" alt=""></picture></td>
+<td><b>完整權限，或圈好的範圍。</b>信任的 agent 可以給整台電腦的權限；其他的只能讀寫你允許的資料夾、只載入你勾選的本機 MCP。限定範圍的 agent 跑在 Claude Code 的沙盒與 auto mode 裡：上網由它自己判斷，你列的網域只是預先放行，Bash 的網路則被沙盒限制在這些網域；被擋下的動作會寫成報告讓你審。</td>
+</tr>
+<tr>
+<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/sticker-done-dark.gif"><img src=".github/assets/sticker-done-light.gif" width="120" alt=""></picture></td>
+<td><b>重要的事會通知你。</b>agent 回覆或排程完成時，推播會送到你的手機。你也能即時看到 agent 正在做什麼、看它的終端機、它開的 subagent、token 用量和費用。</td>
+</tr>
+</table>
+
+<p align="center">
+  <img src=".github/assets/screens/desktop-group-dark.png" alt="電腦上的群組對話與清單">
+</p>
+
+## 為什麼是 PWA
+
+- **像 App 一樣安裝。**在 iPhone、Android 或電腦上加到主畫面，全螢幕開啟、有自己的圖示，不用上架商店。
+- **推播通知**：支援 web push 的平台都能收，包括 iPhone 主畫面上的 App。
+- **一套程式，每種螢幕。**電腦是側邊欄，手機是下方分頁列。
+- **永遠是新版。**伺服器換上新版時，開著的頁面幾秒內就會發現並提示更新；你打字時不會突然重新整理。
+- **你的電腦、你的資料。**伺服器跑在你自己的電腦上，對話、帳號和檔案都在你自己的資料夾裡。
+
+## 為日常使用而設計
+
+<p align="center">
+  <img src=".github/assets/screens/phones-dark.png" alt="手機上的 agent 清單、對話與群組清單">
+</p>
+
+- **熟悉的聊天介面。**圓角輸入框會隨內容長高，附件有預覽，支援提及、訊息搜尋和回到最新。
+- **即時，不輪詢。**一條小小的連線通知頁面「有變動」；收起來的頁面不再發請求；所有分頁一起登入、一起登出。
+- **安靜的預設。**淺色與深色主題，版面乾淨，介面有中文和英文。
+- **認真做好的登入。**密碼加兩步驟驗證、通行密鑰（Face ID、Touch ID、Windows Hello）、用手機掃碼登入、可以立刻登出任何裝置的裝置清單，以及防止重複猜密碼的保護。
+
+## 看得到 agent 在做什麼
+
+打開 agent 的 Profile，設定它的用途、記憶、模型和能碰的範圍。切到終端機，看真正的 Claude Code session 在跑什麼；或打開 transcript，看每一輪用了哪些工具、多少 token 和費用。
+
+<p align="center">
+  <img src=".github/assets/screens/desktop-profile-dark.png" alt="Agent 的 Profile 面板">
+</p>
+
+<p align="center">
+  <img src=".github/assets/screens/desktop-terminal-dark.png" alt="對話旁邊開著 agent 的終端機">
+</p>
+
+<p align="center">
+  <img src=".github/assets/screens/desktop-transcript-dark.png" alt="Transcript 檢視：工具使用、token 與費用">
+</p>
+
+## 需要安裝的東西
+
+CC Agent 跑在你自己的電腦上，目前在 macOS（Apple Silicon）上開發與使用；Linux 也許可以，但沒有測試過。
+
+請盡量使用各項的最新版，它們會定期推出安全修正。括號裡是 CC Agent 最近一次測試用的版本。
+
+| 需要 | 用途 |
+| --- | --- |
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 最新版（測試過 2.1.306），且已登入 | 每個 agent 都是一個 Claude Code session，CC Agent 用它的 channels 與 hooks |
+| [Node.js](https://nodejs.org) 24 LTS 最新版（測試過 24.22.1；22.12 以上可用）與 npm | 執行伺服器、建置網頁 |
+| [tmux](https://github.com/tmux/tmux) 最新版（測試過 3.8；3.5 以上可用） | 讓每個 agent 的 session 在背景持續執行 |
+| Xcode Command Line Tools（macOS） | 編譯終端機檢視用的原生模組（node-pty） |
+| git | 選用，App 顯示的版本號會用到 |
+
+要在家裡網路以外用手機連，請加上 HTTPS。建議用 [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)；用其他反向代理之前，請先讀 [SECURITY.md](SECURITY.md)。推播和通行密鑰都需要 HTTPS。
+
+## 開始使用
+
+```sh
+git clone https://github.com/<you>/cc-agent.git
+cd cc-agent
+npm install
+npm run build
+npm start
+```
+
+預設在 `http://127.0.0.1:4280`。要改埠號，或告訴它你會用哪個 HTTPS 網址開啟，把 `server/.env.example` 複製成 `server/.env`，設定 `CC_AGENT_PORT` 和 `CC_AGENT_PUBLIC_ORIGIN`。
+
+第一次啟動時，它會建立資料夾 `.local/`、自己的密鑰和推播金鑰，以及一個 `admin` 帳號，隨機密碼存在 `.local/local-access.json`（只有你讀得到）。用 `admin` 和這組密碼登入、改掉密碼、開啟兩步驟驗證或加一把通行密鑰，接著建立一個 agent、幫它選個資料夾，跟它打聲招呼。
+
+## 一個起點，不是成品
+
+這是開源的基礎版。它專心做好一件事：替一個人或一個小團隊執行 Claude Code agent。它就是拿來擴充的：
+
+- **其他模型。**在原生 Claude Code 旁邊，加上其他 agent 執行環境或模型 API 的啟動方式。
+- **團隊。**在現有的管理員與一般帳號上，加入自己的角色、使用者隔離與權限。
+- **你的整合。**透過 MCP、排程和背景腳本，把 agent 接上你工作用的工具。
+
+大部分產品自己的值（儲存名稱、標籤、設定）集中在 `server/siteConfig.js`、`src/js/productConfig.js`、`public/push-config.js`。要完整換成你自己的品牌，還要換 `public/` 的圖示、`index.html` 的名稱、`vite.config.js` 的 PWA manifest 與 `public/reset-sw.html`，以及介面文字裡出現產品名稱的地方。
+
+## 安全
+
+agent 用你的使用者權限執行。完整權限的 agent 能在那台電腦上做任何你能做的事，所以只把完整權限給你願意交出終端機的 agent。限定範圍的 agent 有 Claude Code 沙盒和 CC Agent 自己的檢查，但沒有沙盒是完美的。把 CC Agent 開放到網路上之前，請先讀 [SECURITY.md](SECURITY.md)，回報漏洞也照那裡的方式。
+
+## 參與貢獻
+
+歡迎開 issue 和 pull request，請看 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+## 授權
+
+程式碼以 [MIT 授權](LICENSE) 釋出。
+
+CC Agent 的角色圖（本頁與 App 圖示裡的藍色液態角色）屬於 [V-AX](https://v-ax.com)，**不在** MIT 授權範圍內，詳見 [BRAND.md](BRAND.md)。
+
+CC Agent 是獨立專案，不是 Anthropic 製作，也沒有與 Anthropic 合作或經其背書。Claude 與 Claude Code 是 Anthropic 的商標。

@@ -1,0 +1,176 @@
+/* The conversation page's layout, shared with a group chat (GroupRoomPage.vue),
+   each loading it as its own scoped style. */
+/* Keep the native navbar/back control outside this conversation-only shield. */
+.agent-operation-overlay {position:absolute;top:calc(var(--f7-navbar-height) + var(--f7-safe-area-top,0px));left:0;right:0;bottom:0;z-index:600;display:flex;align-items:center;justify-content:center;background:var(--f7-dialog-backdrop-bg-color,rgba(0,0,0,.4));padding:16px;box-sizing:border-box;}
+/* F7 hides .dialog (display:none;opacity:0) until its own modal-in class is added.
+   This shield is not driven by the dialog modal machinery, so restore both here;
+   opacity in particular was missing, leaving a dimmed, locked page with no
+   visible progress card. */
+.agent-operation-card {position:relative;display:block;opacity:1;top:auto;left:auto;margin:0;transform:none;max-width:100%;max-height:100%;overflow:auto;}
+.agent-operation-card .dialog-text {text-align:left;}
+.operation-progress {display:flex;align-items:center;gap:10px;margin:14px 0 4px;font-size:13px;font-variant-numeric:tabular-nums;}
+.operation-progress-track {flex:1;height:6px;border-radius:3px;background:color-mix(in srgb,currentColor 18%,transparent);overflow:hidden;}
+.operation-progress-fill {height:100%;border-radius:3px;background:#34c759;transition:width .6s ease;}
+.chat-page[data-chat~="terminal-side"] > .agent-operation-overlay {right:var(--terminal-width,50%);}
+.chat-page[data-chat~="terminal-side"] > .slash-menu {right:calc(var(--terminal-width,50%) + 12px);}
+.chat-page[data-chat~="side-open"] > .slash-menu {right:calc(var(--transcript-inspector-width) + 12px);}
+.chat-page[data-chat~="has-progress"] > .slash-menu {--slash-top-extra:var(--f7-subnavbar-height);}
+.chat-page[data-chat~="side-open"] > .agent-operation-overlay {right:var(--transcript-inspector-width);}
+
+/* Chat / terminal switch built like F7 segmented-strong tabs
+   (and this app's own bottom nav): rounded translucent track, active segment as a
+   raised pill. F7's nth-child rules supply the segment count; the active index is
+   bound inline. Tap only: a swipe-to-switch gesture would intrude on reading
+   the chat. */
+/* 40px track, 36px pill, 16px button box with a 14px label. The subnavbar
+   otherwise shrinks the button to 14px and the whole control to 32/28. */
+/* F7 9's iOS theme renders every subnavbar as a floating glass capsule: glass
+   fill, inset ring shadow, 16px blur, pill radius, inset 16px each side, and a
+   transparent segmented track because it expects the segmented to BE the capsule.
+   That is the "pill inside a pill", unlike an app whose switch
+   sits in the page body and never enters that slot. Keep the subnavbar for layout
+   (with-subnavbar height math untouched) but paint none of the capsule here, so
+   only two layers remain: the F7 track and the highlight pill. */
+.view-switch {--f7-subnavbar-bg-color:transparent;--f7-subnavbar-offset-left:0;--f7-subnavbar-offset-right:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;}
+/* The segmented wrapper's side padding, so the track spans the same width. */
+.view-switch :deep(.subnavbar-inner) {padding-left:calc(16px + var(--f7-safe-area-left,0px));padding-right:calc(16px + var(--f7-safe-area-right,0px));}
+/* The composer field: F7 9's glass textarea (rgba(50,50,50,.5) dark)
+   let the chat show through. Set F7's own knob on the messagebar so any editor
+   inside it inherits the bubble surface, as iOS Messages does for its input. */
+.chat-page :deep(.messagebar) {--f7-messagebar-textarea-bg-color:var(--f7-message-received-bg-color);}
+
+/* These three states ride a data attribute, not classes. Vue rewrites className
+   when a :class binding changes, which discards classes added at runtime by
+   anyone else — and F7 puts `page-current` on this element. Binding classes here
+   silently dropped it the moment the inspector opened or an agent started
+   working, taking F7's own routing/CSS hooks with it. Attributes do not collide.
+
+   The subnavbar holds only the progress line: the chat/terminal switch moved to
+   an icon in the navbar, so every page is
+   "switchless" as far as this bar is concerned. F7 reserves the page's top padding from
+   --f7-subnavbar-height (44px in the ios theme this app is fixed to, App.vue),
+   so the two states that add or drop a row have to restate it or the first
+   messages hide under the bar. It appears only while the agent is working, so an
+   idle page keeps F7's own height and nothing moves. */
+.subnavbar-stack {display:flex;flex-direction:column;justify-content:center;gap:2px;width:100%;min-width:0;}
+.agent-progress {display:flex;align-items:center;gap:6px;min-width:0;height:24px;font-size:13px;color:var(--cc-color-text-secondary);}
+.agent-progress span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* A turn with no typing bubble (started from the terminal, say) stops from here. */
+.agent-progress .interrupt-turn {flex:0 0 auto;display:flex;align-items:center;justify-content:center;width:22px;height:22px;margin:0 0 0 2px;padding:0;border:0;border-radius:11px;background:color-mix(in srgb,currentColor 16%,transparent);color:var(--cc-color-text);cursor:pointer;}
+.agent-progress .interrupt-turn .icon {font-size:9px;}
+.agent-progress .interrupt-turn:disabled {opacity:.4;cursor:default;}
+.chat-page[data-chat~="has-progress"] {--f7-subnavbar-height:70px;}
+.chat-page[data-chat~="has-progress"][data-chat~="switchless"] {--f7-subnavbar-height:26px;}
+
+/* The agent's light beside its name at the top, as on the Agents list; on its
+   picture it crowded the bubble. */
+.chat-page :deep(.navbar .title) {display:flex;align-items:center;justify-content:center;min-width:0;}
+.nav-agent-name {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.nav-presence {flex:0 0 auto;display:inline-block;width:9px;height:9px;margin-left:7px;border-radius:50%;background:#8e8e93;vertical-align:middle;}
+.nav-presence.online {background:#34c759;}
+.nav-presence.working {background:#ff9500;}
+
+/* The transcript inspector takes a fixed column on the right and the conversation
+   keeps the rest; the navbar still spans the page, so the panel starts below it.
+   Only ever open at >=1024px (agent-chat.js), which is why nothing here has to
+   reflow for a phone. */
+.chat-page {--transcript-inspector-width:min(500px,40vw);}
+/* Four buttons on a phone (checklists, search, terminal, info) cut the name down to
+   a few letters: closer together, the name keeps a few more letters. */
+@media (max-width:480px){.chat-page :deep(.navbar .right > .link + .link){margin-left:6px;}}
+/* Back to the newest bubbles: above the composer, out of the way of the send
+   button, and only while the reader is somewhere further up. It rides on the
+   composer's measured height, so a tall draft does not cover it. */
+.to-latest {position:absolute;right:16px;bottom:calc(var(--conversation-composer-height,calc(var(--f7-messagebar-height,56px) + var(--f7-safe-area-bottom,0px))) + 16px);z-index:130;width:40px;height:40px;border-radius:20px;background:var(--f7-list-bg-color,rgba(40,40,40,.92));box-shadow:0 2px 10px rgba(0,0,0,.28);}
+.chat-page[data-chat~="side-open"] > .messages-content {margin-right:var(--transcript-inspector-width);}
+/* Beside a column, the button stays over the conversation, not on the column. */
+.chat-page[data-chat~="side-open"] > .to-latest {right:calc(var(--transcript-inspector-width) + 16px);}
+.chat-page[data-chat~="terminal-side"] > .to-latest {right:calc(var(--terminal-width,50%) + 16px);}
+/* The terminal's column on a desktop; its width is the page's --terminal-width. */
+.chat-page[data-chat~="terminal-side"] > .messages-content {margin-right:var(--terminal-width,50%);}
+.chat-page[data-chat~="terminal-side"] > :deep(.messagebar) {width:calc(100% - var(--terminal-width,50%));}
+.chat-page[data-chat~="terminal-full"] > .messages-content {visibility:hidden;}
+.terminal-column {position:absolute;top:calc(var(--f7-navbar-height) + var(--f7-safe-area-top,0px) + var(--f7-subnavbar-height,0px));right:0;bottom:0;width:var(--terminal-width,50%);z-index:120;display:flex;flex-direction:column;background:var(--f7-page-bg-color);border-left:1px solid var(--f7-list-item-border-color);}
+.chat-page[data-chat~="switchless"]:not([data-chat~="has-progress"]) > .terminal-column {top:calc(var(--f7-navbar-height) + var(--f7-safe-area-top,0px));}
+.chat-page[data-chat~="terminal-full"] > .terminal-column {border-left:0;}
+.terminal-column :deep(.terminal-pane) {flex:1;min-height:0;}
+.terminal-divider {position:absolute;left:-6px;top:0;bottom:0;width:12px;z-index:30;cursor:col-resize;touch-action:none;}
+.terminal-divider::after {content:'';position:absolute;left:5px;top:50%;width:2px;height:44px;margin-top:-22px;border-radius:1px;background:color-mix(in srgb,currentColor 28%,transparent);}
+.chat-page[data-chat~="terminal-full"] .terminal-divider {left:0;}
+/* F7's .toolbar sets width:100% as well as left:0, which over-constrains an
+   absolutely positioned box and makes `right` ignored — so narrow it by width. */
+.chat-page[data-chat~="side-open"] > :deep(.messagebar) {width:calc(100% - var(--transcript-inspector-width));}
+/* A bubble is a control while the panel is open, and the chosen one says so. */
+.chat-page :deep(.inspectable) {cursor:pointer;}
+/* The ring is inset: an outline outside the bubble is clipped away by the message
+   content box, which is why an offset ring computed correctly and painted nothing.
+   Inside the bubble it needs the opposite colour on a sent bubble, which is filled
+   with the accent. */
+/* The chosen bubble takes an accent ring and nothing else changes: the
+   conversation keeps looking like itself.
+
+   The ring has to be drawn from the bubble's silhouette, not its box. F7's iOS
+   bubble is shaped by a -webkit-mask-box-image SVG (framework7-bundle.css, .ios
+   .message-received.message-tail .message-bubble), so its real outline — tail
+   included — is an alpha mask that has nothing to do with border-radius: an
+   outline outside the box is clipped away, and an inset shadow is masked into a
+   ring with its left side and tail missing, which is exactly what showed.
+   Nothing painted BY the bubble can escape that mask — an outline outside it, an
+   outer shadow, even a drop-shadow filter (filters run before masking) is clipped
+   away. The ring therefore has to be a second, slightly larger copy of the same
+   silhouette, painted behind the bubble by its unmasked parent: same mask, orange
+   fill, 2px proud on every side. The masks below are copied verbatim from
+   framework7-bundle.css (.ios .message-received/.message-sent.message-tail
+   .message-bubble); if F7's bubble shape ever changes, these change with it.
+   The footer leaves the flow while a message is chosen so the parent's box is
+   exactly the bubble's, which is what makes the copy line up. */
+.chat-page :deep(.inspected .message-content) {position:relative;}
+.chat-page :deep(.inspected .message-footer) {position:absolute;top:100%;left:0;right:0;}
+.chat-page :deep(.inspected .message-content::before) {
+  content:'';position:absolute;inset:-2.5px;z-index:-1;background:#cc785c;
+  -webkit-mask-box-image:url("data:image/svg+xml;charset=utf-8,<svg height='35' viewBox='0 0 96 70' width='48' xmlns='http://www.w3.org/2000/svg'><path d='m96 35c1 7-5 37-42 35-37 2-43-28-42-35-1-7 5-37 42-35 37-2 43 28 42 35z'/><path d='m0 70c6-2 12-10 12-19v-16l14 27s-8 8-26 8z'/></svg>") 50% 42% 46% 56%;
+}
+.chat-page :deep(.message-sent.inspected .message-content::before) {
+  -webkit-mask-box-image:url("data:image/svg+xml;charset=utf-8,<svg height='35' viewBox='0 0 96 70' width='48' xmlns='http://www.w3.org/2000/svg'><path d='m84 35c1 7-5 37-42 35-37 2-43-28-42-35-1-7 5-37 42-35 37-2 43 28 42 35z'/><path d='m96 70c-6-2-12-10-12-19v-16l-14 27s8 8 26 8z'/></svg>") 50% 56% 46% 42%;
+}
+.chat-page :deep(.navbar .inspector-on) {color:var(--cc-color-accent);}
+/* Agent Profile's column: the transcript inspector's place and frame, holding the
+   popup's own lists. */
+.profile-panel {position:absolute;top:calc(var(--f7-navbar-height) + var(--f7-safe-area-top,0px) + var(--f7-subnavbar-height,0px));right:0;bottom:0;width:var(--transcript-inspector-width);z-index:120;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;background:var(--f7-page-bg-color);border-left:1px solid var(--f7-list-item-border-color);}
+/* The header is its own row above the fields, so nothing scrolls under it. */
+.pp-head {flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--f7-page-bg-color);border-bottom:1px solid var(--f7-list-item-border-color);}
+.pp-title {flex:1;min-width:0;text-align:center;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pp-head .link {flex:0 0 auto;width:36px;height:36px;justify-content:center;}
+.pp-head .profile-save.disabled {opacity:.4;pointer-events:none;}
+.pp-spacer {flex:0 0 36px;}
+.pp-body {flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:24px;}
+/* A member's page has no subnavbar unless progress shows, so no room is left for one. */
+.chat-page[data-chat~="switchless"]:not([data-chat~="has-progress"]) > .transcript-inspector {top:calc(var(--f7-navbar-height) + var(--f7-safe-area-top,0px));}
+.chat-page[data-chat~="switchless"]:not([data-chat~="has-progress"]) > .profile-panel {top:calc(var(--f7-navbar-height) + var(--f7-safe-area-top,0px));}
+
+.attachment-drafts {position:relative;z-index:2;display:flex;gap:8px;overflow-x:auto;padding:8px 12px;max-height:100px;box-sizing:border-box;}
+.attachment-chip {display:flex;align-items:center;gap:8px;flex:0 0 auto;max-width:260px;border-radius:var(--cc-radius-card,16px);padding:8px 10px;background:var(--cc-glass-fill-subtle);color:var(--cc-color-text);}
+.attachment-chip span {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* A file chosen for the next message opens its preview on a tap. */
+.attachment-draft-open {flex:1 1 auto;min-width:0;display:flex;color:inherit;text-decoration:none;}
+.attachment-chip small {display:block;color:var(--cc-color-text-secondary);}
+
+/* The 9px side-button lift is undone for every bar without a large title in
+   styles/mobile.css, which covers this page; see that rule for the measurements. */
+
+/* Navbar remains a direct F7 page child and never receives keyboard offsets. */
+.chat-page > .messages-content {height:var(--conversation-visible-height,100%);padding-bottom:calc(var(--conversation-composer-height,var(--f7-messagebar-height)) + 16px) !important;}
+/* Keep the history slide out of the composer's reserved area. */
+.chat-page > .messages-content:not(.terminal-content) {clip-path:inset(0 0 calc(var(--conversation-composer-height,var(--f7-messagebar-height)) + 8px) 0);}
+.chat-page > .terminal-content {display:flex;flex-direction:column;overflow:hidden;padding-bottom:var(--f7-safe-area-bottom,0px) !important;}
+.chat-page > :deep(.messagebar) {bottom:var(--conversation-composer-lift,0px);}
+
+.chat-page.conversation-keyboard {--f7-safe-area-bottom:0px;overflow:clip;}
+.chat-page.conversation-keyboard :deep(.messages-content) {overscroll-behavior:contain;}
+
+/* Older pages are history, not arrivals: they appear in place. */
+.messages-content.paging-back :deep(.message-arrival-enter-active) {transition:none;}
+.messages-content.paging-back :deep(.message-arrival-enter-from) {opacity:1;transform:none;}
+
+/* The bubbles' own look (sizes, markdown, attachments, the typing bubbles) is in
+   components/MessageList.vue, shared with the split view's cells. */

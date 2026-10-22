@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.worktrees/
+.DS_Store
+*.log
+dev-dist/
+server/.env
+server/db/*.db
+server/db/*.db~
+logs/
+
+/.local
+.stage/
+
+
+/test-results/
+
+# The test suites are kept privately and not published.
+/tests/
+/server/tests/
+/scripts/run-tests.mjs

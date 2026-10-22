@@ -1,0 +1,113 @@
+<template>
+ <!-- What Agent Profile shows, wherever it is shown: the popup on a phone, the
+      right column of the conversation page on a desktop width. One component, so the two never drift apart. -->
+ <template v-if="detail">
+  <!-- What can be done to the conversation, as icon buttons at the top like the ones
+       in a navbar. Start brings up an agent that is
+       not running; restart pauses and starts one that is, a turn in progress included. -->
+  <div class="profile-actions" role="toolbar" :aria-label="ct('對話操作')">
+   <a v-for="b in actionButtons" :key="b.key" href="#" class="profile-action" :class="[b.cls,{disabled:b.off}]" :title="b.label" :aria-label="b.label" :aria-disabled="b.off?'true':null" @click.prevent="!b.off&&b.run()"><f7-icon :f7="b.icon"/><span>{{b.short}}</span></a>
+  </div>
+  <!-- The agent's own picture, an admin's choice. -->
+  <template v-if="user?.role==='admin'">
+   <!-- One row: the picture with its two actions as pills on the right, like the
+        notification row in Settings. -->
+   <f7-list inset class="cc-settings-list agent-picture">
+    <f7-list-item><template #media><img class="agent-picture-preview" :class="{'is-icon':avatarShape(detail.avatar||defaultAvatar(detail))==='icon'}" :src="detail.avatar||defaultAvatar(detail)" :alt="ct('Agent 圖像')" width="36" height="36"/></template><template #after>
+     <a v-if="detail.avatar" href="#" class="profile-pill agent-picture-reset" :aria-label="ct('還原預設圖像')" @click.prevent="resetAvatar()"><f7-icon f7="arrow_counterclockwise"/><span>{{ct('還原')}}</span></a>
+     <a href="#" class="profile-pill agent-picture-upload" :aria-label="ct('上傳圖像')" @click.prevent="avatarInput?.click()"><f7-icon f7="photo"/><span>{{ct('上傳')}}</span></a>
+    </template></f7-list-item>
+   </f7-list>
+   <input ref="avatarInput" class="agent-picture-input" type="file" accept="image/*" hidden @change="chooseAvatar"/>
+   <GlassDropdown :open="thresholdOpen" :point="thresholdPoint" :items="thresholdItems" :selected="thresholdSelected" @close="thresholdOpen=false" @select="chooseThreshold"/>
+  </template>
+  <AgentProfileFields :key="detail.id" v-model="profileDraft" :collapsed="false" :fold-text="true" :admin="user?.role==='admin'" :readonly="user?.role!=='admin'" :show-access="true" @engine-change="engineNote" :allow-full="user?.role==='admin'">
+   <!-- This agent's own compact policy, or the one on the Admin tab, above the access scope. Applies at once. -->
+   <template v-if="user?.role==='admin'" #before-access><f7-list inset class="cc-settings-list agent-compact">
+    <f7-list-item link no-chevron :title="ct('Compact 後自動接續')" :after="thresholdLabel" @click.prevent="openThreshold($event)"></f7-list-item>
+    <!-- The wrap-up check after a finished task, for this agent. -->
+    <f7-list-item class="agent-wrap-up" :title="ct('自動收尾檢查')" :footer="wrapUpGlobal?undefined:ct('管理頁的總開關目前是關的，不會送出。')"><template #after><f7-toggle :checked="detail.wrapUp!==false" @toggle:change="setWrapUp"/></template></f7-list-item>
+   </f7-list></template>
+  </AgentProfileFields>
+  <template v-if="user?.role==='admin'">
+  <f7-block-footer v-if="!detail.sessionModel">{{ct('既有 session 沿用原設定，儲存模型設定後套用。')}}</f7-block-footer>
+  </template>
+  <f7-block-footer v-else>{{ct('Agent 設定由管理員調整；如需變更，請聯絡 CC Agent 管理員。')}}</f7-block-footer>
+  <template v-if="usageRows">
+   <f7-list inset class="cc-settings-list agent-usage" :title="ct('依各模型的 token 與 API 參考價格估算，不是實際帳單；未知價格不計入金額。')+' '+ct('含這個 Agent 的所有世代。')">
+    <f7-list-item :title="ct('累計 token')" :after="usageRows.total"/>
+    <f7-list-item :title="ct('輸入 / 輸出')" :after="usageRows.io"/>
+    <f7-list-item :title="ct('快取 讀 / 寫')" :after="usageRows.cache"/>
+    <f7-list-item :title="ct('回合數')" :after="usageRows.turns"/>
+    <f7-list-item :title="ct('估算費用')" :after="usageRows.cost"/>
+   </f7-list>
+  </template>
+  <AgentDiagnostics :admin="user?.role==='admin'" @trace-start="$emit('trace-start')" :detail="detail" :status="statusLabel"/>
+  <f7-block v-if="error" role="alert">{{error}}</f7-block>
+ </template>
+</template>
+<script>
+import AgentDiagnostics from "./AgentDiagnostics.vue";
+import AgentProfileFields from "./AgentProfileFields.vue";
+import GlassDropdown from "./GlassDropdown.vue";
+import {inject,computed,ref} from "vue";
+import {f7} from "framework7-vue";
+import {compactCount,compactPolicy} from "../js/agent-i18n.js";
+import {compactThreshold,wrapUp} from "../js/agentPreferences.js";
+import {defaultAvatar,avatarShape} from "../js/avatarShape.js";
+// `title` on a list item is its label, so a row's hover hint is set on its element.
+const hint=(el,binding)=>{el.title=binding.value||'';};
+export default {components:{AgentProfileFields,AgentDiagnostics,GlassDropdown},directives:{hint},emits:['trace-start'],setup(){const w=inject("workspace");const avatarInput=ref(null);
+ let engineToast=null;
+ const thresholdOpen=ref(false),thresholdPoint=ref({clientX:0,clientY:0});
+ const following=()=>w.ct('跟隨管理設定')+'（'+compactPolicy(compactThreshold.value)+'）';
+ const canStart=computed(()=>["stopped","error"].includes(w.detail.value?.phase)||!w.detail.value?.connected&&!["starting","busy","handing-off"].includes(w.detail.value?.phase));
+ const canRestart=computed(()=>!!w.detail.value&&!["stopped","error","starting","handing-off"].includes(w.detail.value.phase));
+ return {...w,defaultAvatar,avatarShape,
+  thresholdOpen,thresholdPoint,
+  thresholdLabel:computed(()=>w.detail.value?.thresholdOwn?compactPolicy(w.detail.value.threshold):following()),
+  thresholdItems:computed(()=>[{value:'follow',label:following()},...Array.from({length:10},(_,i)=>({value:String(i+1),label:compactCount(i+1)})),{value:'0',label:compactPolicy(0)}]),
+  thresholdSelected:computed(()=>w.detail.value?.thresholdOwn?String(w.detail.value.threshold):'follow'),
+  openThreshold:event=>{thresholdPoint.value={clientX:event?.clientX??0,clientY:event?.clientY??0};thresholdOpen.value=true;},
+  wrapUpGlobal:computed(()=>wrapUp.value.enabled===true),
+  setWrapUp:async on=>{if((w.detail.value?.wrapUp!==false)===!!on)return;if(await w.action('wrap-up',{wrapUp:!!on}))f7.toast.create({text:w.ct('設定已保存'),closeTimeout:1800}).open();},
+  chooseThreshold:async value=>{thresholdOpen.value=false;if(await w.action('threshold',{threshold:value==='follow'?null:Number(value)}))f7.toast.create({text:w.ct('設定已保存'),closeTimeout:1800}).open();},
+  avatarInput,
+  // What changing the model or effort does is said when one is changed, not all the
+  // time; one toast at a time.
+  engineNote:()=>{engineToast?.close();engineToast=f7.toast.create({text:w.ct('變更模型或 effort 會重新連線並保留原本對話；請先等待回覆完成。'),closeTimeout:4500,cssClass:'engine-note'});engineToast.open();},
+  // The same picture may be chosen twice in a row, so the input is emptied each time.
+  chooseAvatar:event=>{const file=event.target.files?.[0];event.target.value='';if(file)w.uploadAvatar(file);},
+  // F7's `disabled` class only styles a list item; the @click still fires. These
+  // guard the handlers so a greyed-out control is actually inert.
+  busyPhase:computed(()=>["starting","busy","handing-off"].includes(w.detail.value?.phase)),
+  stopped:computed(()=>["stopped","error"].includes(w.detail.value?.phase)),
+  canStart,
+  canRestart,
+  // F7's `disabled` class only styles; `off` keeps a greyed-out button inert.
+  actionButtons:computed(()=>{const d=w.detail.value;if(!d)return [];const stopped=["stopped","error"].includes(d.phase);return [
+   {key:'start',short:w.ct('啟動'),cls:'agent-start',icon:'play_circle',label:w.ct('啟動'),off:!canStart.value,run:()=>w.action('start')},
+   {key:'restart',short:w.ct('重啟'),cls:'agent-restart',icon:'arrow_clockwise_circle',label:w.ct('重啟'),off:!canRestart.value,run:()=>w.restart()},
+   {key:'pause',short:w.ct('暫停'),icon:'pause_circle',label:w.ct('暫停執行'),off:stopped,run:()=>w.pause()},
+   {key:'handoff',short:w.ct('接續'),icon:'arrow_2_circlepath',label:w.ct('接續到新 session'),off:d.phase==='busy',run:()=>w.handoff()},
+   ...(d.mode==='claude'?[{key:'import',short:w.ct('讀取'),icon:'arrow_down_doc',label:w.ct('讀取 session 既有對話'),off:false,run:()=>w.importHistory()},
+    {key:'compact',short:w.ct('壓縮'),icon:'arrow_down_right_arrow_up_left',label:w.ct('執行一次 compact'),off:d.phase!=='ready',run:()=>w.action('compact')}]:[]),
+   ...(d.mode==='demo'?[{key:'simulate',short:w.ct('模擬'),icon:'arrow_2_circlepath',label:w.ct('模擬一次 compact'),off:false,run:()=>w.action('simulate-compact')}]:[])];})}}};
+</script>
+
+<style scoped>
+/* Cards follow one another at the distance rows keep inside a card. */
+.list{--f7-list-margin-vertical:10px;}
+.list+.block-footer{margin-top:8px;}
+/* The folded name shows no arrow until it is open, as in AgentProfileFields. */
+.agent-picture-preview {width:36px;height:36px;border-radius:38%;object-fit:cover;}
+/* An icon (the default symbol, or a picture with a transparent background) whole, not cut. */
+.agent-picture-preview.is-icon {border-radius:0;object-fit:contain;}
+.agent-picture :deep(.item-after) {gap:8px;align-items:center;}
+.profile-pill {display:flex;align-items:center;gap:5px;height:28px;padding:0 12px;border-radius:14px;background:rgba(120, 120, 128, .24);color:var(--f7-list-item-title-text-color, var(--f7-text-color));font-size:13px;white-space:nowrap;}
+.profile-pill .icon {font-size:17px;}
+.profile-actions {display:flex;justify-content:center;gap:8px;margin:14px var(--cc-space-5) 16px;padding:0 16px;}
+.profile-action {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:1 1 0;min-width:0;max-width:72px;height:54px;border-radius:16px;background:rgba(120, 120, 128, .24);color:var(--f7-list-item-title-text-color, var(--f7-text-color));font-size:12px;line-height:1;white-space:nowrap;}
+.profile-action .icon {font-size:22px;}
+.profile-action.disabled {opacity:.3;pointer-events:none;}
+</style>

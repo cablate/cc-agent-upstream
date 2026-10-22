@@ -1,0 +1,5 @@
+{
+  "name": "cc-agent",
+  "description": "Where skills shared with scoped agents go. Loaded with --plugin-dir, because restricted mode ignores a workspace's own .claude/skills. It ships with none; add them under skills/.",
+  "version": "1.0.0"
+}
