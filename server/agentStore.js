@@ -1167,6 +1167,21 @@ function bridge(c,action,data={}) {
     g.phase='busy';save(c);
     return response;
    }
+   // Background commands the turn leaves running: each named once, for the agent to stop
+   // or explain. Keyed by when it started and what it
+   // is, so one already named never blocks again.
+   if(data.checkFinal===true&&data.stopHookActive!==true){
+    let jobs=[];try{jobs=transcript.currentWork(stateRoot,c).commands||[];}catch{}
+    const keyOf=job=>String(job.since||'')+'|'+String(job.description||'');
+    const fresh=jobs.filter(job=>!(g.bgReminded||[]).includes(keyOf(job)));
+    if(fresh.length){
+     g.bgReminded=[...(g.bgReminded||[]),...fresh.map(keyOf)].slice(-50);
+     const response={ok:true,decision:'block',reason:backgroundReminder(fresh,ownerLanguage(c.owner))};
+     if(stopKey)g.stopReceipt={key:stopKey,epoch:g.deliveryEpoch||0,ids:[],response};
+     g.phase='busy';save(c);
+     return response;
+    }
+   }
    pending.forEach(m=>{m.delivery='unanswered';});
    if(pending.length)g.lastError='Claude 已結束此輪但未回傳最終結果到聊天室；進度訊息不代表完成。';
    g.phase=c.messages.some(m=>m.role==='user'&&m.delivery==='queued')?'busy':'ready';
@@ -1831,28 +1846,27 @@ function wrapUpNote(m){return m.wrapUp?`[Sent automatically by CC Agent: CC Agen
 // only, so a restart while one is still working must not read as a long idle: the
 // wait starts again from the restart.
 const SERVICE_STARTED_AT=Date.now();
-// The commands an agent left running in the background, after the wrap-up check's
-// own text (built in or the owner's): which, and for how long, to stop or explain.
-function backgroundNote(commands,language,now=Date.now()){
- if(!commands?.length)return '';
+// The background commands a turn left running, named once when the turn ends (the Stop
+// hook's result, below). Kept apart from the wrap-up check.
+function backgroundReminder(commands,language,now=Date.now()){
  const zh=language!=='en';
- const lines=commands.map(job=>{const at=Date.parse(job.since||''),minutes=Number.isFinite(at)?Math.max(0,Math.round((now-at)/60000)):null;const what=job.description||(zh?'（沒有說明的指令）':'(a command with no description)');return '- '+what+(minutes===null?'':zh?`（已跑 ${minutes} 分鐘）`:` (running for ${minutes} min)`);});
- return zh?`\n\n另外，你還有 ${commands.length} 個背景指令在跑：\n${lines.join('\n')}\n不再需要的請先關掉（TaskStop）；要留著的，請說明原因。`
-  :`\n\nAlso, you still have ${commands.length} background command${commands.length===1?'':'s'} running:\n${lines.join('\n')}\nStop the ones you no longer need (TaskStop); for any you keep, say why.`;
+ const lines=commands.map(job=>{const at=Date.parse(job.since||''),minutes=Number.isFinite(at)?Math.max(0,Math.round((now-at)/60000)):null;const what=job.description||(zh?'（沒有說明的指令）':'a command with no description');return '- '+what+(minutes===null?'':zh?`（已跑 ${minutes} 分鐘）`:` (running for ${minutes} min)`);});
+ return zh?`CC Agent 自動提醒（不是擁有者說的）：你還有 ${commands.length} 個背景指令在跑：\n${lines.join('\n')}\n不再需要的請用 TaskStop 關掉；要留著的，請在回覆裡簡短說明為什麼留著。`
+  :`An automatic reminder from CC Agent, not the owner: you still have ${commands.length} background command${commands.length===1?'':'s'} running:\n${lines.join('\n')}\nStop the ones you no longer need with TaskStop; for any you keep, say briefly in your reply why.`;
 }
 function runWrapUps({now=Date.now(),startedAt=SERVICE_STARTED_AT,ownerActive=()=>true}={}){
  for(const c of state.conversations){
   if(c.archived||c.mode!=='claude')continue;
   const g=active(c),w=g.wrapUp;
   if(!w)continue;
-  // Still at work: answering, a turn open in its terminal, or a subagent left
-  // running in the background. The wait is counted from when it stops, not from the
-  // answer (the check came while agents were still working), so this is looked at
-  // before the time is up. A command left in the background does not hold it back:
-  // agents forget to stop them, and the check then never came to say so. The check
-  // names them instead (backgroundNote).
+  // Still at work: answering, a turn open in its terminal, or anything left running in
+  // the background, commands as well as subagents. The wait is counted from when it
+  // stops, not from the answer (the check came while agents were still working), so
+  // this is looked at before the time is up. The wrap-up check and forgotten
+  // background commands are separate things: a command left running is named when its turn ends
+  // (backgroundReminder), not in this check.
   const work=transcript.currentWork(stateRoot,c);
-  if(g.phase==='busy'||busyElsewhere(c,g,work)||work.subagents>0){w.busyAt=now;continue;}
+  if(g.phase==='busy'||busyElsewhere(c,g,work)||work.background>0){w.busyAt=now;continue;}
   if(now<w.at)continue;
   // Switched off meanwhile, paused, or an owner who can no longer sign in: let it go.
   // Reconnecting: try again later.
@@ -1863,7 +1877,7 @@ function runWrapUps({now=Date.now(),startedAt=SERVICE_STARTED_AT,ownerActive=()=
   // Nothing but reading and answering since the last check: nothing to wrap up.
   if(!transcript.workedSince(stateRoot,c,g.wrapUpBase||0)){delete g.wrapUp;save(c);continue;}
   const lang=ownerLanguage(c.owner);
-  try{send(c,wrapUpSettings(lang).text+backgroundNote(work.commands,lang,now),'wrap-up-'+g.sessionId.slice(0,8)+'-'+w.at,[],{wrapUp:true,footnote:AUTO_FOOTNOTE.wrapUp[lang]});g.wrapUpBase=now;delete g.wrapUp;save(c);}catch{}
+  try{send(c,wrapUpSettings(lang).text,'wrap-up-'+g.sessionId.slice(0,8)+'-'+w.at,[],{wrapUp:true,footnote:AUTO_FOOTNOTE.wrapUp[lang]});g.wrapUpBase=now;delete g.wrapUp;save(c);}catch{}
  }
 }
 // Who sent a message, for the channel event's meta (channel/server.mjs puts it on the
