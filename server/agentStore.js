@@ -556,7 +556,7 @@ function launch(c) {
  // Its own chat's attachments, readable where it runs scoped (a file the owner sent could not be opened).
  const attachDir=attachments.directory(stateRoot,c);fs.mkdirSync(attachDir,{recursive:true,mode:0o700});
  // Only these keys: channel/runner.mjs refuses any unsupported launch key.
- const config={tmuxSocket,reference:referenceDir(c),attachments:attachDir,conversationId:c.id,sessionId:g.sessionId,token:g.token,generation:g.number,server:'http://127.0.0.1:'+require('./siteConfig').servicePort(),root:ROOT,cwd:dirs.work,bound:dirs.bound,globalHarness:c.globalHarness!==false,resume:g.number===1&&!!c.resumeSessionId,memory:c.memory,profile:agentProfile.profile(c),model,effort:agentProfile.profile(c).effort,handoff:c.handoff||null,access,...(ownerIsActiveAdmin(c.owner)?{}:{mcpTickedOnly:true})};
+ const config={tmuxSocket,tmux:g.tmux,reference:referenceDir(c),attachments:attachDir,conversationId:c.id,sessionId:g.sessionId,token:g.token,generation:g.number,server:'http://127.0.0.1:'+require('./siteConfig').servicePort(),root:ROOT,cwd:dirs.work,bound:dirs.bound,globalHarness:c.globalHarness!==false,resume:g.number===1&&!!c.resumeSessionId,memory:c.memory,profile:agentProfile.profile(c),model,effort:agentProfile.profile(c).effort,handoff:c.handoff||null,access,...(ownerIsActiveAdmin(c.owner)?{}:{mcpTickedOnly:true})};
  const control=controlDir(c,g);fs.mkdirSync(control,{recursive:true,mode:0o700});
  // Earlier launches kept these in the workspace; nothing reads them there any more.
  // A marker left there still means the session has started: carried over as a new
@@ -962,7 +962,7 @@ const prompts=new Map();
 function syncTerminalPrompt(c){
  const g=active(c);if(!g.tmux)return;
  let prompt=null;
- try{prompt=terminalPrompt.parse(execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-pt',g.tmux],{encoding:'utf8',timeout:1000}));}catch{}
+ try{prompt=terminalPrompt.parse(execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-p','-t',g.tmux],{encoding:'utf8',timeout:1000}));}catch{}
  if(prompt&&prompt.options.length<2)prompt=null;
  const old=prompts.get(c.id);
  if(!prompt||old?.session!==g.sessionId&&old){prompts.delete(c.id);}
@@ -976,7 +976,7 @@ function syncTerminalPrompt(c){
 // The owner's choice in that menu, only if the same menu is still on the screen.
 function chooseTerminalOption(c,data){
  const g=active(c);if(c.mode!=='claude')throw error('只有真實 Claude 有終端機。',403);
- const prompt=terminalPrompt.parse(execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-pt',g.tmux],{encoding:'utf8',timeout:2000}));
+ const prompt=terminalPrompt.parse(execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-p','-t',g.tmux],{encoding:'utf8',timeout:2000}));
  if(!prompt||prompt.key!==data?.key)throw error('終端機上的選單已經換了，請重新看一次。',409);
  const keys=data.cancel===true?['Escape']:Number.isInteger(data.index)&&data.index>=0&&data.index<prompt.options.length?terminalPrompt.keysFor(prompt,data.index):null;
  if(!keys)throw error('選項不正確');
@@ -1262,7 +1262,7 @@ function bridge(c,action,data={}) {
   let changed=false;
   // While compacting, the screen also carries its progress (compactScreen.js),
   // kept in memory only, like the heartbeat itself.
-  if(g.manualCompact||g.compacting){try{const screen=execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-pt',g.tmux],{encoding:'utf8',timeout:1000});
+  if(g.manualCompact||g.compacting){try{const screen=execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-p','-t',g.tmux],{encoding:'utf8',timeout:1000});
    g.compactPercent=compactScreen.compactPercent(screen);
    // Claude Code also fires PreCompact for a summary it precomputes in the
    // background while the agent keeps working; that one never draws
@@ -1289,7 +1289,7 @@ function bridge(c,action,data={}) {
 function confirmWorkspace(c){
  if(c.mode!=='claude')throw error('模擬模式不需要工作目錄確認。',403);
  const g=active(c),dir=agentDirs.of(stateRoot,c,g).work;
- const screen=execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-pt',g.tmux],{encoding:'utf8',timeout:2000});
+ const screen=execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-p','-t',g.tmux],{encoding:'utf8',timeout:2000});
  if(!screen.includes('Accessing workspace:')||!screen.includes('Yes, I trust this folder')||!screen.replace(/\s/g,'').includes(dir.replace(/\s/g,'')))throw error('目前不是此對話工作目錄的確認畫面。',409);
  if(screen.includes('❯ No, exit'))execFileSync('tmux',['-L',tmuxSocket,'send-keys','-t',g.tmux,'Down'],{timeout:2000});
  else if(!screen.includes('❯ Yes, I trust this folder'))throw error('無法確認目前選项，請在終端機操作。',409);
@@ -1298,7 +1298,7 @@ function confirmWorkspace(c){
 function confirmChannel(c){
  if(c.mode!=='claude')throw error('模擬模式不需要 Channel 確認。',403);
  const g=active(c);
- const screen=execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-pt',g.tmux],{encoding:'utf8',timeout:2000});
+ const screen=execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-p','-t',g.tmux],{encoding:'utf8',timeout:2000});
  if(!screen.includes('WARNING: Loading development channels')||!screen.includes('Channels: server:executive')||!screen.includes('1. I am using this for local development'))throw error('目前不是本機開發 Channel 確認畫面，未送出任何按鍵。',409);
  execFileSync('tmux',['-L',tmuxSocket,'send-keys','-t',g.tmux,'Enter'],{timeout:2000});g.phase='starting';g.startedAt=Date.now();save(c);
 }
