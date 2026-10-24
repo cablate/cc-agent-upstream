@@ -120,11 +120,14 @@ app.use((req,res,next)=>{for(const k of ['session_id'])if(k in req.cookies&&type
 // Tunnel traffic also arrives from 127.0.0.1, so anything a tunnel or proxy forwarded —
 // recognised by the headers Cloudflare, Tailscale Serve or any reverse proxy adds — is
 // refused as if the path did not exist.
+// Express matches /bridge whatever its case, while a proxy rule blocking the path matches
+// it case by case and would let /BRIDGE through: only the lowercase spelling is the bridge.
 // Refusals and failed bridge calls are audited; the API audit below never saw them.
 const FORWARDED_HEADERS = ['cf-connecting-ip', 'cf-ray', 'cdn-loop', 'tailscale-user-login', 'x-forwarded-for', 'forwarded'];
 app.use('/bridge', (req, res, next) => {
-  if (FORWARDED_HEADERS.some((h) => req.headers[h])) {
-    audit({ source: 'bridge', method: req.method, path: req.originalUrl, status: 404, reason: 'forwarded by a tunnel or proxy', ip: resolveClientIp(req) });
+  const forwarded = FORWARDED_HEADERS.some((h) => req.headers[h]);
+  if (forwarded || !req.originalUrl.startsWith('/bridge')) {
+    audit({ source: 'bridge', method: req.method, path: req.originalUrl, status: 404, reason: forwarded ? 'forwarded by a tunnel or proxy' : 'not spelled /bridge', ip: resolveClientIp(req) });
     return res.status(404).json({ message: 'Not found' });
   }
   res.on('finish', () => {
