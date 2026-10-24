@@ -22,7 +22,12 @@ function readItem(args){
   try{const token=JSON.parse(stdout).claudeAiOauth?.accessToken;resolve(typeof token==='string'&&token?token:null);}catch{resolve(null);}
  }));
 }
+// Windows has no Keychain: Claude Code keeps the same login in ~/.claude/.credentials.json.
+async function readCredentialsFile(){
+ try{const token=JSON.parse(fs.readFileSync(require('node:path').join(require('node:os').homedir(),'.claude','.credentials.json'),'utf8')).claudeAiOauth?.accessToken;return typeof token==='string'&&token?token:null;}catch{return null;}
+}
 async function readToken(){
+ if(process.platform==='win32')return readCredentialsFile();
  let user='';try{user=require('node:os').userInfo().username;}catch{}
  const own=user?await readItem(['-a',user]):null;
  return typeof own==='string'?own:readItem([]);

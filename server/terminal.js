@@ -3,6 +3,8 @@ const jwt=require('jsonwebtoken');
 const {resolveLivePrincipal}=require('./services/livePrincipal');
 const agents=require('./agentStore');
 const agentEnv=require('../channel/agentEnv.cjs');
+const platform=require('../channel/platform.cjs');
+const runtimeTools=require('../channel/runtimeTools.cjs');
 const {audit}=require('./services/audit');
 const {resolveClientIp}=require('./services/clientIp');
 // One PTY per browser attachment. It runs only `tmux attach-session`, never Claude.
@@ -18,6 +20,9 @@ const {resolveClientIp}=require('./services/clientIp');
 // Express, so the API audit could not see them.
 const LOCKED='cc-agent-locked';
 const {execFileSync}=require('node:child_process');
+// node-pty on Windows finds a program only by its full file name or its path, never as
+// plain `tmux`.
+const tmuxCommand=()=>platform.isWin?runtimeTools.resolveOnPath('tmux')?.path||'tmux.exe':'tmux';
 function sessionAlive(session){if(!session)return false;try{execFileSync('tmux',['-L',require('./agentStore').tmuxSocket,'has-session','-t',String(session).split(':')[0]],{stdio:'ignore',timeout:2000});return true;}catch{return false;}}
 const attachArgs=(session,socket=require('./agentStore').tmuxSocket)=>['-L',socket,
  'set-option','-t',session,'mouse','on',';',
@@ -70,7 +75,7 @@ function installTerminal(server,{ptyModule=require('node-pty'),tickMs=3000,sessi
     let ticks=0;
     // From where, too: the same address the sign-in records keep.
     audit({source:'terminal',path:req.url,status:101,username:principal.username,role:principal.role,conversation:c.id,ip:resolveClientIp(req)});
-    try{terminal=ptyModule.spawn('tmux',attachArgs(g.tmux),{name:'xterm-256color',cols:100,rows:30,cwd:agents.stateRoot,env:{...agentEnv(),TERM:'xterm-256color'}});}catch{send({type:'error',message:'無法附接終端，請確認此對話仍在執行。'});return close();}
+    try{terminal=ptyModule.spawn(tmuxCommand(),attachArgs(g.tmux),{name:'xterm-256color',cols:100,rows:30,cwd:agents.stateRoot,env:{...agentEnv(),TERM:'xterm-256color'}});}catch{send({type:'error',message:'無法附接終端，請確認此對話仍在執行。'});return close();}
     terminal.onData(data=>{if(!valid())return close();send({type:'data',data});});
     terminal.onExit(()=>{send({type:'closed'});close();});
     let windowStart=Date.now(),bytes=0;
