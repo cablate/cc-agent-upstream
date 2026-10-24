@@ -32,6 +32,15 @@ CC Agent 跑在你自己的 Mac 上。你建立的每個 agent，都是 tmux 裡
 
 它用的是你已經裝好的 Claude Code，和你已經登入的訂閱。沒有額外的 API 費用，中間也沒有雲端服務。
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/architecture-dark.png">
+    <img src=".github/assets/architecture-light.png" alt="CC Agent 的架構：你的裝置、CC Agent 伺服器、每個 agent 各自的 Claude Code session，以及 Anthropic">
+  </picture>
+</p>
+
+所有功能的詳細說明，請看 [docs/FEATURES.zh-TW.md](docs/FEATURES.zh-TW.md)。
+
 ## 特色
 
 <table>
