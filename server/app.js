@@ -119,10 +119,12 @@ app.use((req,res,next)=>{for(const k of ['session_id'])if(k in req.cookies&&type
 // The bridge is for the agents on this machine, which call 127.0.0.1 directly.
 // Tunnel traffic also arrives from 127.0.0.1, so anything Cloudflare forwarded —
 // recognised by the headers it adds — is refused as if the path did not exist.
+// Express ignores case here but a proxy rule on /bridge may not, so only lowercase is the bridge.
 // Refusals and failed bridge calls are audited; the API audit below never saw them.
 app.use('/bridge', (req, res, next) => {
-  if (req.headers['cf-connecting-ip'] || req.headers['cf-ray'] || req.headers['cdn-loop']) {
-    audit({ source: 'bridge', method: req.method, path: req.originalUrl, status: 404, reason: 'forwarded by Cloudflare', ip: resolveClientIp(req) });
+  const cloudflare = req.headers['cf-connecting-ip'] || req.headers['cf-ray'] || req.headers['cdn-loop'];
+  if (cloudflare || !req.originalUrl.startsWith('/bridge')) {
+    audit({ source: 'bridge', method: req.method, path: req.originalUrl, status: 404, reason: cloudflare ? 'forwarded by Cloudflare' : 'not spelled /bridge', ip: resolveClientIp(req) });
     return res.status(404).json({ message: 'Not found' });
   }
   res.on('finish', () => {
