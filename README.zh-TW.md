@@ -103,7 +103,7 @@ CC Agent 跑在你自己的電腦上，目前在 macOS（Apple Silicon）上開�
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 最新版（測試過 2.1.306），且已登入 | 每個 agent 都是一個 Claude Code session，CC Agent 用它的 channels 與 hooks |
 | [Node.js](https://nodejs.org) 24 LTS 最新版（測試過 24.22.1；22.12 以上可用）與 npm | 執行伺服器、建置網頁 |
 | [tmux](https://github.com/tmux/tmux) 最新版（測試過 3.8；3.5 以上可用） | 讓每個 agent 的 session 在背景持續執行 |
-| Xcode Command Line Tools（macOS） | 編譯終端機檢視用的原生模組（node-pty） |
+| Xcode Command Line Tools（macOS） | 選用，排程背景腳本用 Python 時提供 python3 |
 | git | 選用，App 顯示的版本號會用到 |
 
 要在家裡網路以外用手機連，請加上 HTTPS。建議用 [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)；用其他反向代理之前，請先讀 [SECURITY.md](SECURITY.md)。推播和通行密鑰都需要 HTTPS。
@@ -121,6 +121,16 @@ npm start
 預設在 `http://127.0.0.1:4280`。要改埠號，或告訴它你會用哪個 HTTPS 網址開啟，把 `server/.env.example` 複製成 `server/.env`，設定 `CC_AGENT_PORT` 和 `CC_AGENT_PUBLIC_ORIGIN`。
 
 第一次啟動時，它會建立資料夾 `.local/`、自己的密鑰和推播金鑰，以及一個 `admin` 帳號，隨機密碼存在 `.local/local-access.json`（只有你讀得到）。用 `admin` 和這組密碼登入、改掉密碼、開啟兩步驟驗證或加一把通行密鑰，接著建立一個 agent、幫它選個資料夾，跟它打聲招呼。
+
+## 在其他系統上執行
+
+CC Agent 目前只在 Apple 晶片的 macOS 上部署過。要在其他系統上執行，請自行驗證。以下幾點可以當起點：
+
+- **Linux：** `npm install` 之前先裝好 C++ 編譯工具。終端機檢視用的 node-pty 沒有 Linux 的現成版本，安裝時會現場編譯。
+- **Windows：** 請在 WSL 裡執行，因為 tmux 沒有原生 Windows 版。
+- **只能在 macOS 用的部分：** 排程的背景腳本在 macOS 沙盒裡執行；Claude 用量從 macOS 鑰匙圈讀 Claude Code 的登入。在其他系統上，這兩項目前還不能用。
+
+如果你在新的系統上跑起來了，歡迎開 issue 分享需要改哪些地方。
 
 ## 一個起點，不是成品
 

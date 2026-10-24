@@ -103,7 +103,7 @@ Use the latest release of each dependency: they regularly ship security fixes. T
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code), latest (tested 2.1.306), signed in | Every agent is a Claude Code session; CC Agent uses its channels and hooks |
 | [Node.js](https://nodejs.org) 24 LTS, latest (tested 24.22.1; 22.12 or later works), and npm | Runs the server and builds the web app |
 | [tmux](https://github.com/tmux/tmux), latest (tested 3.8; 3.5 or later works) | Keeps each agent's session running in the background |
-| Xcode Command Line Tools (macOS) | Builds the terminal view's native module (node-pty) |
+| Xcode Command Line Tools (macOS) | Optional; provides python3 for background scripts written in Python |
 | git | Optional; used for the version shown in the app |
 
 To reach it from your phone outside your home network, put it behind HTTPS. [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) is the supported way; if you use another reverse proxy, read [SECURITY.md](SECURITY.md) first. Push notifications and passkeys need HTTPS.
@@ -121,6 +121,16 @@ npm start
 It listens on `http://127.0.0.1:4280` by default. To change the port, or to tell it the HTTPS address you will open it from, copy `server/.env.example` to `server/.env` and set `CC_AGENT_PORT` and `CC_AGENT_PUBLIC_ORIGIN`.
 
 On the first start it creates its data folder (`.local/`), its own secrets and push keys, and an `admin` account with a random password saved in `.local/local-access.json`, readable only by you. Sign in as `admin` with that password, change it, turn on two-step sign-in or add a passkey, then create an agent, pick a folder for it, and say hello.
+
+## Running on other systems
+
+So far CC Agent has only been deployed on macOS with Apple silicon. If you run it on another system, please verify it yourself. Some notes to start from:
+
+- **Linux:** install a C++ build toolchain before `npm install`. node-pty, used by the terminal view, ships no prebuilt binary for Linux and is compiled on install.
+- **Windows:** run it inside WSL. tmux has no native Windows version.
+- **macOS-only parts:** background scripts in schedules run in the macOS sandbox, and the Claude usage meter reads Claude Code's login from the macOS Keychain. Elsewhere, these two do not work yet.
+
+If you get it running somewhere new, an issue describing what you had to change is welcome.
 
 ## A starting point, not a finished product
 
