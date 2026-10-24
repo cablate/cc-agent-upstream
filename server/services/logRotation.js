@@ -18,6 +18,9 @@ const {
 const ROTATE_AFTER_DAYS = 7;
 const RETENTION_DAYS = 365;
 const DAY_MS = 24 * 60 * 60 * 1000;
+// Windows has no O_NOFOLLOW. There the lstat-then-fstat identity checks below stand on
+// their own, as in privateFiles.js; making a link there needs admin rights or Developer Mode.
+const NO_FOLLOW = fs.constants.O_NOFOLLOW || 0;
 const FIRST_LINE_CAP = 64 * 1024;
 // The setting that moves the audit log (services/audit.js) is named by the product.
 const AUDIT_LOG_ENV = require('../siteConfig').PRODUCT.env.auditLog;
@@ -61,11 +64,9 @@ function sameFile(left, right) {
 // Read the first line through a no-follow descriptor and verify it is the same
 // regular file lstat inspected. Return both the timestamp and a safe reason.
 function firstLineTimeMs(filePath, expectedInfo) {
-  const noFollow = fs.constants.O_NOFOLLOW;
-  if (!Number.isInteger(noFollow)) return { stamp: null, reason: 'nofollow_unavailable' };
   let fd;
   try {
-    fd = fs.openSync(filePath, fs.constants.O_RDONLY | noFollow);
+    fd = fs.openSync(filePath, fs.constants.O_RDONLY | NO_FOLLOW);
   } catch (_error) {
     return { stamp: null, reason: 'unreadable' };
   }
@@ -100,13 +101,11 @@ function firstLineTimeMs(filePath, expectedInfo) {
 }
 
 function hardenRegularNoFollow(filePath) {
-  const noFollow = fs.constants.O_NOFOLLOW;
-  if (!Number.isInteger(noFollow)) throw new Error('O_NOFOLLOW is unavailable');
   const before = fs.lstatSync(filePath);
   if (before.isSymbolicLink() || !before.isFile()) {
     throw new Error(`log path is not a regular file: ${filePath}`);
   }
-  const fd = fs.openSync(filePath, fs.constants.O_RDONLY | noFollow);
+  const fd = fs.openSync(filePath, fs.constants.O_RDONLY | NO_FOLLOW);
   try {
     const opened = fs.fstatSync(fd);
     if (!opened.isFile() || !sameFile(opened, before)) {
@@ -119,10 +118,8 @@ function hardenRegularNoFollow(filePath) {
 }
 
 function createOrOpenPrivateLog(filePath) {
-  const noFollow = fs.constants.O_NOFOLLOW;
-  if (!Number.isInteger(noFollow)) throw new Error('O_NOFOLLOW is unavailable');
   const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT
-    | fs.constants.O_APPEND | noFollow;
+    | fs.constants.O_APPEND | NO_FOLLOW;
   const fd = fs.openSync(filePath, flags, PRIVATE_FILE_MODE);
   try {
     const opened = fs.fstatSync(fd);
