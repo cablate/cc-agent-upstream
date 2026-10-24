@@ -64,7 +64,7 @@ async function setKeep(a,keep){
 // Now rather than when due, after saying what goes; the session with it unless
 // the agent was taken over from an existing one.
 function purge(a){
- const what=ct('會立刻刪掉它在平台上的聊天紀錄、工作資料夾、附件和圖像')+(!a.sessionSurvives?ct('，連同它的 Claude session。'):a.generation>1?ct('；原本的 session 不會被刪，但換代後的 session 會一起刪掉。'):ct('；原本的 session 不會被刪。'))+'\n'+ct('刪了就無法復原。');
+ const what=ct('會立刻刪掉它在平台上的聊天紀錄、工作資料夾、附件和圖像')+(!a.sessionSurvives?ct('，連同它的 Claude session。'):a.generation>1?ct('；原本的 session 不會被刪，但換代後的 session 會一起刪掉。'):ct('；原本的 session 不會被刪。'))+(a.workspace?'\n'+ct('綁定的 repo 不會被動到：')+a.workspace+ct('，只刪這個 Agent 自己的 session 檔。'):'')+'\n'+ct('刪了就無法復原。');
  f7.dialog.confirm(what,ct('永久刪除')+'「'+a.title+'」',async()=>{
   busy.value=a.id;
   try{absorb(await api('/archived-agents/'+a.id+'/purge',{method:'POST',body:'{}'}));f7.toast.create({text:ct('已永久刪除')+'「'+a.title+'」',closeTimeout:2200}).open();}

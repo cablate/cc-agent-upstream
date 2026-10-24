@@ -12,6 +12,7 @@ const compactScreen=require('./compactScreen');
 const slashCommands=require('./slashCommands');
 const agentEnv=require('../channel/agentEnv.cjs');
 const agentAccess=require('./agentAccess');
+const agentDirs=require('./agentDirs');
 const unsandboxedCommands=require('../channel/unsandboxedCommands.cjs');
 const runtimeTools=require('../channel/runtimeTools.cjs');
 const ROOT = path.resolve(__dirname, '..');
@@ -238,7 +239,7 @@ function liveSession(id){
  }
  return null;
 }
-function create(owner,{title,description='',memory='',model,effort,mode='claude',threshold,resumeSessionId='',access,...rest}={},callerRole) {
+function create(owner,{title,description='',memory='',model,effort,mode='claude',threshold,resumeSessionId='',access,workspace,globalHarness,...rest}={},callerRole) {
  // An owner id becomes a directory name (users/<owner>/): nothing that could climb out.
  if(typeof owner!=='string'||!/^[A-Za-z0-9_-]{1,64}$/.test(owner))throw error('Invalid owner',400);
  // Agents start with native claude only: a launch command is refused, never ignored.
@@ -249,7 +250,7 @@ function create(owner,{title,description='',memory='',model,effort,mode='claude'
  if(effort===undefined)effort=admin?'medium':'high';
  // A scope at creation is an admin's, like any scope; full access is then honoured
  // only while the owner is an active admin (launchAccess).
- const profile=agentProfile.validate({title:title||'新的對話',description,memory,model,effort,...(access!==undefined?{access}:{})},{},callerRole);
+ const profile=agentProfile.validate({title:title||'新的對話',description,memory,model,effort,...(access!==undefined?{access}:{}),...(workspace!==undefined?{workspace}:{}),...(globalHarness!==undefined?{globalHarness}:{})},{},callerRole);
  assertFullAccessGrant(owner,profile.access,callerRole);
  if(threshold===undefined)threshold=getPreferences(owner).compactThreshold;
  if(!['claude','demo'].includes(mode))throw error('Invalid mode');
@@ -517,24 +518,50 @@ function referenceInfo(c){
  const files=entries.map(e=>e.name).sort();
  return files.length?{folder:referenceDir(c),files,note:'Reference files the administrator placed for this agent. Read them when relevant; they are read-only.'}:null;
 }
+// Whether this run's Claude session exists yet: its started marker (here, or in the
+// folder earlier launches used), or a transcript Claude has filed for it.
+function sessionStarted(c,g){
+ const d=agentDirs.of(stateRoot,c,g);
+ return fs.existsSync(path.join(d.control,'started.marker'))||fs.existsSync(path.join(d.own,'started.marker'))||!!transcript.sessionFile(stateRoot,c,g);
+}
 function launch(c) {
  const g=active(c);
  if(c.mode==='demo'){g.ready=true;g.phase='ready';g.heartbeat=Date.now();save(c);return;}
  if(['starting','ready','busy','handing-off'].includes(g.phase)&&g.heartbeat>Date.now()-15000)return;
- const dir=path.join(stateRoot,'workspaces',c.id,'g'+g.number);fs.mkdirSync(dir,{recursive:true,mode:0o700});fs.mkdirSync(referenceDir(c),{recursive:true,mode:0o700});
  const access=launchAccess(c);
+ // A repository to work in belongs to a full-access agent: a scoped one is fenced to the
+ // folder CC Agent makes for it. Stopped here with the reason, never started in the wrong place.
+ if(c.workspace&&!access.full)throw error('這個 Agent 設了工作資料夾，但現在不是完整權限（例如它的擁有者已不是啟用中的管理員）。請到 Agent Profile 清空工作資料夾，或恢復完整權限。',409);
+ let dirs=agentDirs.of(stateRoot,c,g);
+ const target=c.workspace||dirs.own;
+ if(dirs.work!==target){
+  // Claude resumes a session only from the folder it began in. A run that has started stays
+  // there, so a workspace changed since is taken up by a new generation, which keeps the
+  // conversation by handoff; one that has not started simply begins in the new folder.
+  if(sessionStarted(c,g)){
+   add(c,'system','工作資料夾已改為：'+(c.workspace||'CC Agent 自己建的資料夾')+'（原本：'+(dirs.bound?dirs.work:'CC Agent 自己建的資料夾')+'）。Claude 只能在 session 開始時的資料夾接續它，所以換成新的一代，對話與記憶照常交接。');
+   return rotate(c);
+  }
+  if(c.workspace)g.workDir=c.workspace;else delete g.workDir;
+  dirs=agentDirs.of(stateRoot,c,g);
+ }
+ // Checked again at every launch: the folder may be gone, or a protected place since.
+ if(dirs.bound){try{agentAccess.workspaceFolder(c.workspace);}catch(e){throw error('工作資料夾無法使用：'+e.message,409);}}
+ fs.mkdirSync(dirs.own,{recursive:true,mode:0o700});fs.mkdirSync(referenceDir(c),{recursive:true,mode:0o700});
  const model=agentProfile.fit(agentProfile.profile(c).model);
  // Its own chat's attachments, readable where it runs scoped (a file the owner sent could not be opened).
  const attachDir=attachments.directory(stateRoot,c);fs.mkdirSync(attachDir,{recursive:true,mode:0o700});
  // Only these keys: channel/runner.mjs refuses any unsupported launch key.
- const config={tmuxSocket,reference:referenceDir(c),attachments:attachDir,conversationId:c.id,sessionId:g.sessionId,token:g.token,generation:g.number,server:'http://127.0.0.1:'+require('./siteConfig').servicePort(),root:ROOT,cwd:dir,resume:g.number===1&&!!c.resumeSessionId,memory:c.memory,profile:agentProfile.profile(c),model,effort:agentProfile.profile(c).effort,handoff:c.handoff||null,access,...(ownerIsActiveAdmin(c.owner)?{}:{mcpTickedOnly:true})};
+ const config={tmuxSocket,reference:referenceDir(c),attachments:attachDir,conversationId:c.id,sessionId:g.sessionId,token:g.token,generation:g.number,server:'http://127.0.0.1:'+require('./siteConfig').servicePort(),root:ROOT,cwd:dirs.work,bound:dirs.bound,globalHarness:c.globalHarness!==false,resume:g.number===1&&!!c.resumeSessionId,memory:c.memory,profile:agentProfile.profile(c),model,effort:agentProfile.profile(c).effort,handoff:c.handoff||null,access,...(ownerIsActiveAdmin(c.owner)?{}:{mcpTickedOnly:true})};
  const control=controlDir(c,g);fs.mkdirSync(control,{recursive:true,mode:0o700});
  // Earlier launches kept these in the workspace; nothing reads them there any more.
  // A marker left there still means the session has started: carried over as a new
  // file, never moved, since the agent could have made it a link.
- const legacyMarker=path.join(dir,'started.marker');
+ const legacyMarker=path.join(dirs.own,'started.marker');
  if(fs.existsSync(legacyMarker)&&!fs.existsSync(path.join(control,'started.marker')))writeFresh(path.join(control,'started.marker'),g.sessionId);
- for(const f of ['runtime.json','settings.json','.mcp.json','started.marker'])fs.rmSync(path.join(dir,f),{force:true});
+ // Cleared from the agent's own folder only: a bound agent's work folder is a repository,
+ // whose .mcp.json (if it has one) is its own and is never touched here.
+ for(const f of ['runtime.json','settings.json','.mcp.json','started.marker'])fs.rmSync(path.join(dirs.own,f),{force:true});
  // Written to a new file and renamed into place, so a link made to an earlier copy
  // never sees this one.
  const configPath=path.join(control,'runtime.json');writeFresh(configPath,JSON.stringify(config));
@@ -547,7 +574,7 @@ function launch(c) {
   // A pane takes PATH from this tmux client and everything else from the tmux
   // server's global environment, which is this client's if it is the one that
   // starts the server. Hand it the agent allowlist, not the service's secrets.
-  execFileSync('tmux',['-L',tmuxSocket,'new-session','-d','-s',g.tmux,'-c',dir,quote(process.execPath)+' '+quote(path.join(ROOT,'channel/runner.mjs'))+' '+quote(configPath)],{timeout:5000,env:agentEnv()});
+  execFileSync('tmux',['-L',tmuxSocket,'new-session','-d','-s',g.tmux,'-c',dirs.work,quote(process.execPath)+' '+quote(path.join(ROOT,'channel/runner.mjs'))+' '+quote(configPath)],{timeout:5000,env:agentEnv()});
   delete c.pausedByOwner;
   g.model=config.model;g.effort=config.effort;g.profileHash=null;g.toolPolicy='native-bypass';g.phase='starting';g.ready=false;g.lastError='';g.heartbeat=Date.now();g.startedAt=Date.now();save(c);
  }catch(e){g.phase='error';g.lastError='tmux 啟動失敗：'+e.message;save(c);throw error(g.lastError,500);}
@@ -1242,7 +1269,7 @@ function bridge(c,action,data={}) {
 
 function confirmWorkspace(c){
  if(c.mode!=='claude')throw error('模擬模式不需要工作目錄確認。',403);
- const g=active(c),dir=path.join(stateRoot,'workspaces',c.id,'g'+g.number);
+ const g=active(c),dir=agentDirs.of(stateRoot,c,g).work;
  const screen=execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-pt',g.tmux],{encoding:'utf8',timeout:2000});
  if(!screen.includes('Accessing workspace:')||!screen.includes('Yes, I trust this folder')||!screen.replace(/\s/g,'').includes(dir.replace(/\s/g,'')))throw error('目前不是此對話工作目錄的確認畫面。',409);
  if(screen.includes('❯ No, exit'))execFileSync('tmux',['-L',tmuxSocket,'send-keys','-t',g.tmux,'Down'],{timeout:2000});
@@ -1294,7 +1321,7 @@ function mcpServerNames(c){
  if(launchAccess(c).full){
   try{
    const conf=JSON.parse(fs.readFileSync(path.join(require('node:os').homedir(),'.claude.json'),'utf8'));
-   const cwd=path.join(stateRoot,'workspaces',c.id,'g'+active(c).number);
+   const cwd=agentDirs.of(stateRoot,c,active(c)).work;
    for(const n of Object.keys(conf.mcpServers||{}))names.add(n);
    for(const n of Object.keys(conf.projects?.[cwd]?.mcpServers||{}))names.add(n);
   }catch{}
@@ -1341,17 +1368,20 @@ const UNSENT_ATTACHMENT_HOURS=24;
 const DAY=86400000;
 
 // An agent's own Claude transcript lives at ~/.claude/projects/<workspace path
-// with non-alphanumerics turned into ->. Only ever remove the directory that
-// corresponds to a workspace *this app created*: a conversation started with
-// resumeSessionId points at a session the user made themselves, elsewhere, and
-// that history is not ours to delete.
+// with non-alphanumerics turned into ->. Only ever remove what *this app created*: a
+// conversation started with resumeSessionId points at a session the user made themselves,
+// elsewhere, and that history is not ours to delete.
+// A run in a folder CC Agent made owns that whole project folder. A run bound to a
+// repository shares its project folder with the owner's own sessions and the repository's
+// memory, so only its own session goes: <sessionId>.jsonl and the folder of that name.
 function removeConversationFiles(c){
  for(const x of scheduleStore.list())if(x.conversationId===c.id)dropScript(x.id);
  scheduleStore.removeFor(c.id);
  for(const run of c.runs||[]){
-  const cwd=path.join(stateRoot,'workspaces',c.id,'g'+run.number);
-  const projects=path.join(require('node:os').homedir(),'.claude','projects',cwd.replace(/[^a-zA-Z0-9]/g,'-'));
-  try{fs.rmSync(projects,{recursive:true,force:true});}catch{}
+  const d=agentDirs.of(stateRoot,c,run);
+  if(!d.bound){try{fs.rmSync(agentDirs.projectFolder(d.work),{recursive:true,force:true});}catch{}continue;}
+  if(run.number===1&&c.resumeSessionId)continue;
+  for(const p of agentDirs.sessionFiles(d.work,run.sessionId)){try{fs.rmSync(p,{recursive:true,force:true});}catch{}}
  }
  try{fs.rmSync(path.join(stateRoot,'workspaces',c.id),{recursive:true,force:true});}catch{}
  try{fs.rmSync(path.join(stateRoot,'users',c.owner,'attachments',c.id),{recursive:true,force:true});}catch{}
@@ -1499,7 +1529,7 @@ function stopAgentsOf(owner){
 function archivedList(){
  const days=archiveRetentionDays();
  return state.conversations.filter(c=>c.archived)
-  .map(c=>{const due=purgeAt(c,days),deletedAt=c.archivedAt||c.updatedAt||c.createdAt||null;return {id:c.id,owner:c.owner,title:c.title,source:sourceFor(c),avatar:c.avatar?'/api/conversations/'+c.id+'/avatar?v='+c.avatar.version:null,archivedAt:deletedAt,purgeAt:due===null?null:new Date(due).toISOString(),keep:!!c.keepArchived,sessionSurvives:!!c.resumeSessionId,generation:c.generation};})
+  .map(c=>{const due=purgeAt(c,days),deletedAt=c.archivedAt||c.updatedAt||c.createdAt||null;return {id:c.id,owner:c.owner,title:c.title,source:sourceFor(c),avatar:c.avatar?'/api/conversations/'+c.id+'/avatar?v='+c.avatar.version:null,archivedAt:deletedAt,purgeAt:due===null?null:new Date(due).toISOString(),keep:!!c.keepArchived,sessionSurvives:!!c.resumeSessionId,workspace:c.workspace||'',generation:c.generation};})
   .sort((a,b)=>String(b.archivedAt||'').localeCompare(String(a.archivedAt||'')));
 }
 function archivedFor(id){const c=state.conversations.find(x=>x.id===id&&x.archived);if(!c)throw error('找不到這個已刪除的 Agent',404);return c;}
@@ -1526,10 +1556,13 @@ function archiveFor(owner,id){const c=get(id,owner);if(c.archived)return c;stop(
 function updateProfile(c,input,callerRole){
  if(c.archived)throw error('Agent archived',409);
  if(input.profileVersion!==(c.profileVersion||0))throw error('Agent profile changed. Reopen the profile and try again.',409);
- const p=agentProfile.validate(input,c,callerRole),changedModel=c.model!==p.model||c.effort!==p.effort||!agentAccess.same(p.access,agentAccess.of(c));
+ // Where it works and what its Claude loads change what a running Claude was started
+ // with, so they relaunch it as a new model or scope does.
+ const before=agentProfile.profile(c);
+ const p=agentProfile.validate(input,c,callerRole),changedModel=c.model!==p.model||c.effort!==p.effort||!agentAccess.same(p.access,agentAccess.of(c))||p.workspace!==before.workspace||p.globalHarness!==before.globalHarness;
  assertFullAccessGrant(c.owner,p.access,callerRole);
  if(!agentAccess.same(p.access,agentAccess.of(c)))assertProgramsSafe(c,p.access);
- if(changedModel&&['busy','starting','handing-off'].includes(active(c).phase))throw error('請等待目前回覆完成，再變更模型、effort 或存取範圍。',409);
+ if(changedModel&&['busy','starting','handing-off'].includes(active(c).phase))throw error('請等待目前回覆完成，再變更模型、effort、存取範圍、工作資料夾或全域設定。',409);
  Object.assign(c,p);c.profileVersion=(c.profileVersion||0)+1;c.updatedAt=new Date().toISOString();save(c);return changedModel;
 }
 function profileMessage(c,g,text){
@@ -1555,7 +1588,8 @@ function launcherProblem(exe){
 // Somewhere an agent can write: CC Agent's data, /tmp, or a folder granted to an agent.
 function agentWritable(real){
  const home=require('node:os').homedir(),real_=p=>{try{return fs.realpathSync.native(p);}catch{return path.resolve(p);}};
- const unsafe=[stateRoot,'/tmp','/private/tmp',...state.conversations.filter(c=>!c.archived).flatMap(c=>agentAccess.of(c).allow.map(a=>a.replace(/^~(?=$|\/)/,home)))].map(real_);
+ // A bound agent's repository is as writable to it as a folder granted to a scoped one.
+ const unsafe=[stateRoot,'/tmp','/private/tmp',...state.conversations.filter(c=>!c.archived).flatMap(c=>[...agentAccess.of(c).allow.map(a=>a.replace(/^~(?=$|\/)/,home)),...(c.workspace?[c.workspace]:[])])].map(real_);
  return unsafe.some(root=>real===root||real.startsWith(root+'/'));
 }
 // A built-in check's arguments that name a file or folder may not point where an
@@ -1667,6 +1701,7 @@ function applyAccess(c,next,current=agentAccess.of(c)){
  if(agentAccess.same(next,current))return {changed:false,access:current};
  const g=active(c);
  if(['busy','starting','handing-off'].includes(g.phase))throw error('這個 Agent 正在回覆或啟動中，請稍後再調整範圍。',409);
+ if(c.workspace&&!next.full)throw error('這個 Agent 綁了工作資料夾，只有完整權限能用。請先到 Agent Profile 清空工作資料夾，再取消完整權限。',400);
  assertProgramsSafe(c,next);
  c.access=next;c.profileVersion=(c.profileVersion||0)+1;c.updatedAt=new Date().toISOString();save(c);
  if(c.mode==='claude'&&['ready','awaiting-workspace','awaiting-confirmation'].includes(g.phase)){try{stop(c);launch(c);}catch(e){console.error(`relaunch after a scope change failed for ${c.id}: ${e.message}`);}}

@@ -83,6 +83,13 @@ const OUTSIDE_HOME_DENY=['/Volumes','/Users','/private/tmp','/Library/LaunchDaem
 // agent's stays /tmp/cca-<8>-g<n>. Anything wrong with them stops the launch, naming
 // the path in the chat.
 const uid=process.getuid(),fullAccess=access.full===true;
+// A bound agent (server/agentDirs.js) works in a repository an admin named, not in the folder
+// CC Agent makes: that repository's own CLAUDE.md, hooks and skills are its rules, and
+// nothing below writes into it or into a folder above it. Only a full-access agent is bound;
+// a scoped one is fenced to its own folder. globalHarness:false keeps the owner's own Claude
+// setup (user settings, hooks, plugins, skills, ~/.claude/CLAUDE.md) out of the session.
+const bound=config.bound===true,noGlobal=config.globalHarness===false;
+if(bound&&!fullAccess){await bridge(config,'error',{message:'限定範圍的 Agent 不能在工作資料夾（repository）裡工作，已拒絕啟動。'}).catch(()=>{});process.exit(1);}
 const tmpName=`${String(config.conversationId||'x').slice(0,8)}-g${config.generation||1}`;
 const tmpRoot=`/tmp/cca-${uid}`;
 const agentTmp=fullAccess?`/tmp/cca-${tmpName}`:path.join(tmpRoot,tmpName);
@@ -245,7 +252,18 @@ const scope=full?{permissions:{...(own.permissions||{})}}:{
 // loads a project's AGENTS.md only where it finds no CLAUDE.md on the way up, so it also
 // keeps an AGENTS.md in a folder above the workspace from being taken as the agent's
 // rules; rewritten at each launch.
-writeFresh(path.join(config.cwd,'CLAUDE.md'),[
+// A bound agent's repository is not ours to write in, and its own CLAUDE.md is the one that
+// counts: the notice goes in the control folder and is added to the system prompt instead.
+const noticeFile=path.join(controlDir,'workspace-notice.md');
+if(bound)writeFresh(noticeFile,[
+ '# CC Agent',
+ '',
+ 'You are an agent of CC Agent: your owner talks to you through a web chat. Your working directory is the repository you are bound to, not a folder of CC Agent\'s.',
+ 'Work in it as in your owner\'s own terminal: its CLAUDE.md or AGENTS.md, its hooks and its skills apply. CC Agent adds no file to it.',
+ 'Also follow your Agent Profile and memory, which mcp__executive__bootstrap returns.',
+ '',
+].join('\n'));
+else writeFresh(path.join(config.cwd,'CLAUDE.md'),[
  '# CC Agent workspace',
  '',
  'This folder is your working directory, not a project of its own.',
@@ -276,8 +294,24 @@ if(ownerConfig){
 const DISCORD_PLUGIN='discord@claude-plugins-official';
 const settingsRoots=dir=>{const out=[dir];for(let d=path.dirname(dir);;d=path.dirname(d)){if(fs.existsSync(path.join(d,'.git')))out.push(d);if(d===path.dirname(d))return out;}};
 const noDiscord=path.join(controlDir,'no-discord');
+// What this session adds with --settings (loaded above the owner's, the project's and the
+// local settings), for an agent that is bound or loads none of the owner's setup:
+// - Discord off, as a bound agent's repository cannot be written for it. This is for this
+//   launch only; no file in the repository or above it, and --settings is measured to win
+//   over the user settings that enable the plugin.
+// - Without the owner's settings: the one answer bypass mode would otherwise ask for at start
+//   (it is the owner's, in their user settings), and the owner's CLAUDE.md and rules, which
+//   Claude still finds as the project memory of a folder under home even with the user
+//   source off (measured with /context, as the comment on claudeMdExcludes above says).
+const ownerSettings=ownerConfig&&(bound||noGlobal);
+if(ownerSettings){
+ const home=process.env.HOME||'';
+ const userMemory=[...new Set([home,fs.realpathSync(home)])].flatMap(h=>['CLAUDE.md','rules/**'].map(f=>glob(h)+'/.claude/'+f));
+ writeFresh(settings,JSON.stringify({enabledPlugins:{[DISCORD_PLUGIN]:false},...(noGlobal?{skipDangerousModePermissionPrompt:true,claudeMdExcludes:userMemory}:{})}));
+}
 if(ownerConfig){
- try{
+ // A launch that is not bound keeps the way it has always switched Discord off.
+ if(!bound)try{
   for(const root of settingsRoots(config.cwd)){
    const local=path.join(root,'.claude','settings.local.json');
    let current={};try{current=JSON.parse(fs.readFileSync(local,'utf8'));}catch(e){if(e.code!=='ENOENT')throw new Error(local+' 無法讀取或不是合法 JSON');}
@@ -310,6 +344,7 @@ const prompt='Initialize this private web session. First use ToolSearch to disco
 const nameArgs=typeof config.profile?.title==='string'&&config.profile.title.trim()?['--name',config.profile.title.trim().slice(0,80)]:[];
 // Both access modes use the native CLI with an explicit Claude model and effort.
 const ownerArgs=[...nameArgs,'--model',config.model||'claude-sonnet-5-5','--effort',config.effort||'high',...(resumed?['--resume',config.sessionId]:['--session-id',config.sessionId]),'--mcp-config',mcpFile,'--dangerously-load-development-channels','server:executive','--dangerously-skip-permissions','--allowedTools','ToolSearch','mcp__executive__bootstrap','mcp__executive__ready','mcp__executive__reply','mcp__executive__post','mcp__executive__group_post','mcp__executive__checklists','mcp__executive__checklist','mcp__executive__remember','mcp__executive__describe','mcp__executive__history',...versionedToolNames(config),
+ ...(noGlobal?['--setting-sources','project,local']:[]),...(ownerSettings?['--settings',settings]:[]),...(bound?['--append-system-prompt-file',noticeFile]:[]),
  '--plugin-dir',hooksPlugin,'--',prompt];
 // Scoped agents run in auto mode: the scope that
 // matters is files outside it, held by the sandbox, --restricted and deny rules, which
@@ -319,7 +354,9 @@ const args=ownerConfig?ownerArgs:[...nameArgs,'--model',config.model||'claude-so
 // outside the sandbox. --strict-mcp-config would stop that but also drops the
 // claude.ai connectors agents use (measured), and the server removes the
 // file at every launch, so one here now was put there since: refuse to start.
-if(fs.existsSync(path.join(config.cwd,'.mcp.json'))){await bridge(config,'error',{message:'工作區裡出現 .mcp.json，已拒絕啟動。請聯絡 CC Agent 管理員。'}).catch(()=>{});process.exit(1);}
+// Not for a bound agent: its repository's .mcp.json is the repository's own, part of the
+// harness the owner chose by naming it, and nothing here ever wrote or removed it.
+if(!bound&&fs.existsSync(path.join(config.cwd,'.mcp.json'))){await bridge(config,'error',{message:'工作區裡出現 .mcp.json，已拒絕啟動。請聯絡 CC Agent 管理員。'}).catch(()=>{});process.exit(1);}
 // No command, argument prefix or executable path from a profile: the claude found on
 // the service's clean PATH (absolute entries only), resolved here, and never one inside
 // the workspace, a folder this agent may write, its reference or attachments folder

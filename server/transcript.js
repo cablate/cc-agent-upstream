@@ -10,6 +10,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const agentDirs = require('./agentDirs');
 
 const PROJECTS = path.join(os.homedir(), '.claude', 'projects');
 
@@ -363,7 +364,7 @@ function trackRelays(state, record) {
 function relays(stateRoot, conversation) {
   const run = (conversation?.runs || []).at(-1);
   if (conversation?.mode !== 'claude' || !run) return [];
-  const file = locate(path.join(stateRoot, 'workspaces', conversation.id, 'g' + run.number), run.sessionId);
+  const file = locate(agentDirs.of(stateRoot, conversation, run).work, run.sessionId);
   const state = file ? read(file) : null;
   return state ? [...state.relays.values()] : [];
 }
@@ -426,10 +427,15 @@ function locate(cwd, sessionId) {
   return file;
 }
 
+// The transcript Claude has filed for one run of the conversation, or null.
+function sessionFile(stateRoot, conversation, run) {
+  return locate(agentDirs.of(stateRoot, conversation, run).work, run.sessionId);
+}
+
 function statesFor(stateRoot, conversation) {
   const out = [];
   for (const run of conversation.runs || []) {
-    const cwd = path.join(stateRoot, 'workspaces', conversation.id, 'g' + run.number);
+    const cwd = agentDirs.of(stateRoot, conversation, run).work;
     const file = locate(cwd, run.sessionId);
     if (!file) continue;
     const state = read(file);
@@ -491,7 +497,7 @@ function currentWork(stateRoot, conversation) {
   const none = {inTurn: false, background: 0, subagents: 0, commands: []};
   const run = (conversation?.runs || []).at(-1);
   if (conversation?.mode !== 'claude' || !run) return none;
-  const file = locate(path.join(stateRoot, 'workspaces', conversation.id, 'g' + run.number), run.sessionId);
+  const file = locate(agentDirs.of(stateRoot, conversation, run).work, run.sessionId);
   const state = file ? read(file) : null;
   if (!state) return none;
   const jobs = liveBackground(state);
@@ -503,7 +509,7 @@ function currentWork(stateRoot, conversation) {
 function quotaReset(stateRoot, conversation) {
   const run = (conversation?.runs || []).at(-1);
   if (conversation?.mode !== 'claude' || !run) return null;
-  const file = locate(path.join(stateRoot, 'workspaces', conversation.id, 'g' + run.number), run.sessionId);
+  const file = locate(agentDirs.of(stateRoot, conversation, run).work, run.sessionId);
   const state = file ? read(file) : null;
   return state?.quotaReset || null;
 }
@@ -513,7 +519,7 @@ function quotaReset(stateRoot, conversation) {
 function waiting(stateRoot, conversation) {
   const run = (conversation?.runs || []).at(-1);
   if (conversation?.mode !== 'claude' || !run) return null;
-  const file = locate(path.join(stateRoot, 'workspaces', conversation.id, 'g' + run.number), run.sessionId);
+  const file = locate(agentDirs.of(stateRoot, conversation, run).work, run.sessionId);
   const state = file ? read(file) : null;
   return state ? {queued: new Set(state.queue.filter(Boolean)), handed: state.enqueued} : null;
 }
@@ -601,7 +607,7 @@ function workedSince(stateRoot, conversation, since) {
   if (!conversation || conversation.mode !== 'claude') return false;
   const run = (conversation.runs || []).find(r => r.number === conversation.generation) || (conversation.runs || []).at(-1);
   if (!run) return false;
-  const file = locate(path.join(stateRoot, 'workspaces', conversation.id, 'g' + run.number), run.sessionId);
+  const file = locate(agentDirs.of(stateRoot, conversation, run).work, run.sessionId);
   if (!file) return false;
   let source;
   try { source = readAll(file); } catch { return false; }
@@ -626,7 +632,7 @@ function segment(stateRoot, conversation, messageId) {
   if (!turnId) return null;
   const run = (conversation.runs || []).find(r => r.number === message.generation) || (conversation.runs || []).at(-1);
   if (!run) return null;
-  const file = locate(path.join(stateRoot, 'workspaces', conversation.id, 'g' + run.number), run.sessionId);
+  const file = locate(agentDirs.of(stateRoot, conversation, run).work, run.sessionId);
   if (!file) return null;
 
   let source;
@@ -752,7 +758,7 @@ function history(stateRoot, conversation, skipped = new Set()) {
   const onPage = new Set((conversation.messages || []).map(m => m.id));
   const turns = [];
   for (const run of conversation.runs || []) {
-    const file = locate(path.join(stateRoot, 'workspaces', conversation.id, 'g' + run.number), run.sessionId);
+    const file = locate(agentDirs.of(stateRoot, conversation, run).work, run.sessionId);
     if (!file) continue;
     // Read whole, however large: importing is asked for by hand, and the tail alone
     // would leave out a large session's earlier turns.
@@ -839,7 +845,7 @@ function history(stateRoot, conversation, skipped = new Set()) {
 function skills(stateRoot, conversation) {
   const run = (conversation?.runs || []).at(-1);
   if (conversation?.mode !== 'claude' || !run) return [];
-  const file = locate(path.join(stateRoot, 'workspaces', conversation.id, 'g' + run.number), run.sessionId);
+  const file = locate(agentDirs.of(stateRoot, conversation, run).work, run.sessionId);
   const state = file ? read(file) : null;
   return state ? [...state.skills].map(([name, description]) => ({name, description: description.slice(0, 300)})) : [];
 }
@@ -849,7 +855,7 @@ function skills(stateRoot, conversation) {
 function connectors(stateRoot, conversation) {
   const run = (conversation?.runs || []).at(-1);
   if (conversation?.mode !== 'claude' || !run) return [];
-  const file = locate(path.join(stateRoot, 'workspaces', conversation.id, 'g' + run.number), run.sessionId);
+  const file = locate(agentDirs.of(stateRoot, conversation, run).work, run.sessionId);
   if (!file) return [];
   let text = '';
   try {
@@ -863,7 +869,7 @@ function connectors(stateRoot, conversation) {
 function lastCompaction(stateRoot, conversation) {
   const run = (conversation.runs || []).find(r => r.number === conversation.generation) || (conversation.runs || []).at(-1);
   if (!run) return null;
-  const file = locate(path.join(stateRoot, 'workspaces', conversation.id, 'g' + run.number), run.sessionId);
+  const file = locate(agentDirs.of(stateRoot, conversation, run).work, run.sessionId);
   const state = file && read(file);
   return state?.compactions.at(-1) || null;
 }
@@ -921,7 +927,7 @@ function subagents(stateRoot, conversation) {
   if (!conversation || conversation.mode !== 'claude') return [];
   const out = [];
   for (const run of conversation.runs || []) {
-    const file = locate(path.join(stateRoot, 'workspaces', conversation.id, 'g' + run.number), run.sessionId);
+    const file = locate(agentDirs.of(stateRoot, conversation, run).work, run.sessionId);
     if (!file) continue;
     const dir = path.join(file.slice(0, -'.jsonl'.length), 'subagents');
     let names = [];
@@ -934,4 +940,4 @@ function subagents(stateRoot, conversation) {
   return out.sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt))).slice(0, SUBAGENT_MAX);
 }
 
-module.exports = {workedSince, subagents, lastCompaction, usage, progress, currentWork, quotaReset, waiting, skills, connectors, relays, segment, history, messageCost, priceOf, PRICES, WEB_SEARCH_USD};
+module.exports = {sessionFile, workedSince, subagents, lastCompaction, usage, progress, currentWork, quotaReset, waiting, skills, connectors, relays, segment, history, messageCost, priceOf, PRICES, WEB_SEARCH_USD};

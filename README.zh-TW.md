@@ -108,6 +108,15 @@ CC Agent 跑在你自己的電腦上，目前在 macOS（Apple Silicon）上開�
 
 要在家裡網路以外用手機連，請加上 HTTPS。建議用 [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)；用其他反向代理之前，請先讀 [SECURITY.md](SECURITY.md)。推播和通行密鑰都需要 HTTPS。
 
+## 一個在你 repo 裡工作的 agent
+
+完整權限的 agent 可以綁定一個 repository（僅限管理員，在 Agent Profile 的**工作資料夾**）。它的 Claude 會直接在那個 repo 裡啟動，所以 repo 自己的 `CLAUDE.md` / `AGENTS.md`、`.claude/settings.json` 的 hooks 與 `.claude/skills` 都會生效，和你在終端機裡一樣。CC Agent 不會在 repo 或它上層的資料夾寫任何檔：自己的檔案留在資料目錄，給 Claude 的說明加進系統提示，Discord 則用 `--settings` 在這次啟動關掉。刪除這個 agent 只會刪它自己的 session 檔，不會動 repo，也不會動你在同一個 repo 裡的其他 session。
+
+- 資料夾必須存在；不能是 CC Agent 的程式或資料夾、`~/.claude`、`~/.ssh`、你的家目錄（或它的上層）、磁碟根目錄。限定範圍的 agent 不能設。
+- **載入我的全域設定**（預設開）決定這個 Claude 要不要同時載入你的使用者層設定：`~/.claude/settings.json` 的 hooks 與外掛、全域 skills、`~/.claude/CLAUDE.md`，以及你加在 `~/.claude.json` 的 MCP。關掉就只用 repo 自己的；claude.ai 連接器仍會載入，用 Claude Code mods 裝的外掛不受這個開關管。
+- repo 自己的 `.mcp.json` 仍是 repo 的：CC Agent 不寫也不刪它，它的 server 會跟著 agent 一起啟動（實測 bypass 模式不會要求核准）。
+- Claude 只能在 session 開始時的資料夾接續它，所以已經啟動過的 agent 換工作資料夾，會換成新的一代（照常交接，對話不斷）。
+
 ## 開始使用
 
 ```sh
