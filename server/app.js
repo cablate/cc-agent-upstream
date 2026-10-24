@@ -117,12 +117,14 @@ app.use(cookieParser());
 // string or it is nothing: dropped here, before any route can hand it to a query.
 app.use((req,res,next)=>{for(const k of ['session_id'])if(k in req.cookies&&typeof req.cookies[k]!=='string')delete req.cookies[k];next();});
 // The bridge is for the agents on this machine, which call 127.0.0.1 directly.
-// Tunnel traffic also arrives from 127.0.0.1, so anything Cloudflare forwarded —
-// recognised by the headers it adds — is refused as if the path did not exist.
+// Tunnel traffic also arrives from 127.0.0.1, so anything a tunnel or proxy forwarded —
+// recognised by the headers Cloudflare, Tailscale Serve or any reverse proxy adds — is
+// refused as if the path did not exist.
 // Refusals and failed bridge calls are audited; the API audit below never saw them.
+const FORWARDED_HEADERS = ['cf-connecting-ip', 'cf-ray', 'cdn-loop', 'tailscale-user-login', 'x-forwarded-for', 'forwarded'];
 app.use('/bridge', (req, res, next) => {
-  if (req.headers['cf-connecting-ip'] || req.headers['cf-ray'] || req.headers['cdn-loop']) {
-    audit({ source: 'bridge', method: req.method, path: req.originalUrl, status: 404, reason: 'forwarded by Cloudflare', ip: resolveClientIp(req) });
+  if (FORWARDED_HEADERS.some((h) => req.headers[h])) {
+    audit({ source: 'bridge', method: req.method, path: req.originalUrl, status: 404, reason: 'forwarded by a tunnel or proxy', ip: resolveClientIp(req) });
     return res.status(404).json({ message: 'Not found' });
   }
   res.on('finish', () => {
