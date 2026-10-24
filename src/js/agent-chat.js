@@ -8,6 +8,7 @@ import {measureComposer} from './conversationComposer.js';
 import {useAttachmentDrafts} from './attachmentDrafts.js';
 import {shouldSendOnEnter} from './chatKeyboard.js';
 import {ct,generation} from './agent-i18n.js';
+import {timeLocale} from './i18n.js';
 import * as agentOperation from './agentOperation.js';
 import * as status from './conversationStatus.js';
 import {useSlashMenu} from './slashMenu.js';
@@ -901,7 +902,7 @@ async function saveProfile(){if(profileSaving.value)return;profileSaving.value=t
 // The draft is taken when Agent Profile opens, in either form, and again when the
 // open panel moves to another agent — never on the 1.2 s refresh, which would undo typing.
 watch(()=>[infoOpen.value||profilePanelVisible.value,detail.value?.id],([open,id],[wasOpen,wasId]=[])=>{if(open&&detail.value&&(!wasOpen||id!==wasId)){profileDraft.value=agentOperation.profileDraftOf(detail.value);memoryDraft.value=detail.value.memory||'';error.value='';}},{immediate:true});
-const time=s=>new Date(s).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+const time=s=>new Date(s).toLocaleTimeString(timeLocale(),{hour:'2-digit',minute:'2-digit'});
 // The conversation the page was opened on — a notification, or an address someone
 // kept — read once at load: the address is rewritten as the user moves around, so
 // reading it after sign-in could find it already replaced.
