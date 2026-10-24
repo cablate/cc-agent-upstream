@@ -28,8 +28,8 @@ mcp.setRequestHandler(ListToolsRequestSchema,async()=>({tools:[
 ]}));
 mcp.setRequestHandler(CallToolRequestSchema,async({params})=>{
  const a=params.arguments||{};let result;params={...params,name:baseName(params.name)};
- if(params.name==='bootstrap')result=await bridge(config,'bootstrap',{});
- else if(params.name==='ready')result=await bridge(config,'ready');
+ if(params.name==='bootstrap')result=await bridge(config,'bootstrap',{address:process.env.CLAUDE_CODE_MESSAGING_SOCKET});
+ else if(params.name==='ready')result=await bridge(config,'ready',{address:process.env.CLAUDE_CODE_MESSAGING_SOCKET});
  // Current tools always send final; the server treats a missing final as an older tool.
  else if(params.name==='reply'&&typeof a.final!=='boolean')throw new Error('final must be true or false');
  else if(params.name==='reply')result=await bridge(config,'reply',{messageId:a.message_id,text:a.text,final:a.final,files:Array.isArray(a.files)?a.files:undefined,replyKey:randomUUID()});
@@ -52,4 +52,4 @@ mcp.setRequestHandler(CallToolRequestSchema,async({params})=>{
 mcp.setNotificationHandler(z.object({method:z.literal('notifications/claude/channel/permission_request'),params:z.object({request_id:z.string(),tool_name:z.string(),description:z.string(),input_preview:z.string()})}),async({params})=>{await bridge(config,'permission-request',params);});
 await mcp.connect(new StdioServerTransport());
 let stopped=false;process.on('SIGTERM',()=>{stopped=true;process.exit(0);});
-while(!stopped){try{const r=await bridge(config,'poll');for(const verdict of r.permissions||[]){await mcp.notification({method:'notifications/claude/channel/permission',params:{request_id:verdict.request_id,behavior:verdict.behavior}});await bridge(config,'permission-ack',{request_id:verdict.request_id});}if(r.message)await mcp.notification({method:'notifications/claude/channel',params:{content:r.message.text,meta:{message_id:r.message.id,...senderMeta(r.message)}}});}catch(e){console.error(e.message);}await new Promise(r=>setTimeout(r,700));}
+while(!stopped){try{const r=await bridge(config,'poll',{address:process.env.CLAUDE_CODE_MESSAGING_SOCKET});for(const verdict of r.permissions||[]){await mcp.notification({method:'notifications/claude/channel/permission',params:{request_id:verdict.request_id,behavior:verdict.behavior}});await bridge(config,'permission-ack',{request_id:verdict.request_id});}if(r.message)await mcp.notification({method:'notifications/claude/channel',params:{content:r.message.text,meta:{message_id:r.message.id,...senderMeta(r.message)}}});}catch(e){console.error(e.message);}await new Promise(r=>setTimeout(r,700));}

@@ -14,6 +14,7 @@ const agentEnv=require('../channel/agentEnv.cjs');
 const agentAccess=require('./agentAccess');
 const unsandboxedCommands=require('../channel/unsandboxedCommands.cjs');
 const runtimeTools=require('../channel/runtimeTools.cjs');
+const platform=require('../channel/platform.cjs');
 const ROOT = path.resolve(__dirname, '..');
 // A test that names no data folder gets a new empty one, never this repository's live
 // .local and, with it, the live tmux socket (a second
@@ -251,6 +252,8 @@ function create(owner,{title,description='',memory='',model,effort,mode='claude'
  // only while the owner is an active admin (launchAccess).
  const profile=agentProfile.validate({title:title||'新的對話',description,memory,model,effort,...(access!==undefined?{access}:{})},{},callerRole);
  assertFullAccessGrant(owner,profile.access,callerRole);
+ // Refused here as well as at launch, so no agent is made that cannot start.
+ if(platform.isWin&&mode==='claude'&&!profile.access.full&&rest.start!==false)throw error(platform.SCOPED_UNSUPPORTED);
  if(threshold===undefined)threshold=getPreferences(owner).compactThreshold;
  if(!['claude','demo'].includes(mode))throw error('Invalid mode');
  if(!Number.isInteger(threshold)||threshold<0||threshold>10)throw error('交接門檻必須為 0–10（0 為不自動換代）');
@@ -523,6 +526,7 @@ function launch(c) {
  if(['starting','ready','busy','handing-off'].includes(g.phase)&&g.heartbeat>Date.now()-15000)return;
  const dir=path.join(stateRoot,'workspaces',c.id,'g'+g.number);fs.mkdirSync(dir,{recursive:true,mode:0o700});fs.mkdirSync(referenceDir(c),{recursive:true,mode:0o700});
  const access=launchAccess(c);
+ if(platform.isWin&&!access.full)throw error(platform.SCOPED_UNSUPPORTED);
  const model=agentProfile.fit(agentProfile.profile(c).model);
  // Its own chat's attachments, readable where it runs scoped (a file the owner sent could not be opened).
  const attachDir=attachments.directory(stateRoot,c);fs.mkdirSync(attachDir,{recursive:true,mode:0o700});
@@ -538,7 +542,7 @@ function launch(c) {
  // Written to a new file and renamed into place, so a link made to an earlier copy
  // never sees this one.
  const configPath=path.join(control,'runtime.json');writeFresh(configPath,JSON.stringify(config));
- const quote=s=>"'"+s.replace(/'/g,"'\\''")+"'";
+ const quote=platform.paneQuote;
  try {
   execFileSync('tmux',['-L',tmuxSocket,'has-session','-t',g.tmux],{stdio:'ignore',timeout:2000});
   throw error('此對話程序仍存在；請先暫停，再重新連線。',409);
@@ -651,8 +655,8 @@ function fileBlocked(c,g){
 // Messages between agents' sessions, shown in both chats: one that arrived, with who sent it, pushed to the owner; one this
 // agent sent, with whom to. Only what happens from the first look on: the history
 // an agent already had is not replayed into its chat.
-// The sender is one of the owner's agents only when its socket is in that agent's
-// runtime folder; the name a session gives is its own claim and never enough. Whom this agent sent to is its own choice of words, so a
+// The sender is one of the owner's agents when its socket is in that agent's
+// runtime folder, or on Windows when it is the address that agent's current generation registered; the name a session gives is its own claim and never enough. Whom this agent sent to is its own choice of words, so a
 // send may also be matched by the agent's title.
 // That folder (channel/runner.mjs): /tmp/cca-<uid>/<8>-g<n> for a scoped agent;
 // /tmp/cca-<8>-g<n>, or cca-<8>-g<n> under this server's TMPDIR, for a
@@ -666,14 +670,26 @@ function socketAgentId(from){
  if(!m||m[1].split('/').includes('..'))return undefined;
  let real;try{real=fs.realpathSync.native(m[1]);}catch{return undefined;}
  let serverTmp=null;try{serverTmp=fs.realpathSync.native(require('node:os').tmpdir());}catch{}
- const folders=[`/private/tmp/cca-${process.getuid()}/([0-9a-f]{8})-g\\d+`,'/private/tmp/cca-([0-9a-f]{8})-g\\d+',...(serverTmp?[`${escapeRe(serverTmp)}/cca-([0-9a-f]{8})-g\\d+`]:[])];
+ const folders=[`/private/tmp/cca-${process.getuid?.()}/([0-9a-f]{8})-g\\d+`,'/private/tmp/cca-([0-9a-f]{8})-g\\d+',...(serverTmp?[`${escapeRe(serverTmp)}/cca-([0-9a-f]{8})-g\\d+`]:[])];
  for(const folder of folders){const hit=new RegExp(`^${folder}/cc-socks/${SOCKET_FILE}$`).exec(real);if(hit)return hit[1];}
  return undefined;
 }
+// On Windows there is no socket file to go by: an address is a named pipe
+// (uds:\\.\pipe\LOCAL\cc-msg-<hash>). Claude Code names it to what it starts in
+// CLAUDE_CODE_MESSAGING_SOCKET, so the channel a generation started sends it with
+// bootstrap and ready, and the generation keeps it (g.address). Only an agent's
+// current generation counts, and only when no other agent has the same address.
+const isAddress=s=>String(s||'').startsWith('uds:');
+function registerAddress(c,g,address){if(typeof address!=='string'||!address||address.length>300||/[\0\r\n]/.test(address)||g.address==='uds:'+address)return;g.address='uds:'+address;save(c);}
+function addressAgent(c,address){
+ if(!isAddress(address))return null;
+ const hits=state.conversations.filter(x=>x.owner===c.owner&&!x.archived&&x.mode==='claude'&&active(x)?.address===address);
+ return hits.length===1?hits[0]:null;
+}
 function relayPeer(c,r){
  const id=socketAgentId(r.from);
- const peer=id?state.conversations.find(x=>x.owner===c.owner&&x.id.startsWith(id)):r.direction==='out'?state.conversations.find(x=>x.owner===c.owner&&!x.archived&&x.title===r.name):null;
- return peer?{peerId:peer.id,peerName:peer.title}:{peerId:null,peerName:r.name||'另一個 session'};
+ const peer=id?state.conversations.find(x=>x.owner===c.owner&&x.id.startsWith(id)):r.direction==='in'?addressAgent(c,r.from):state.conversations.find(x=>x.owner===c.owner&&!x.archived&&x.title===r.name)||addressAgent(c,r.name);
+ return peer?{peerId:peer.id,peerName:peer.title}:{peerId:null,peerName:r.name&&!isAddress(r.name)?r.name:'另一個 session'};
 }
 // A message from outside the group an agent works for, once handed to it, is other work.
 function leaveGroupFor(c,r,peerId){
@@ -963,6 +979,9 @@ function bridge(c,action,data={}) {
  // A session that read its bootstrap has its channel working. A session that then
  // says ready is not among its tools and stops there would stay starting for good;
  // bootstrap completes the handshake too, and ready stays harmless when it follows.
+ // The channel polls from the moment it starts, so the address is known before the
+ // model has called any tool; it saves only when the address is new.
+ if(action==='bootstrap'||action==='ready'||action==='poll')registerAddress(c,g,data.address);
  if(action==='bootstrap'){if(['starting','error'].includes(g.phase)&&!g.compacting){markReady(c,g);save(c);}return {profile:agentProfile.profile(c),memory:c.memory,handoff:c.handoff||null,reference:referenceInfo(c),checklists:checklists.summary(c)};}
  if(action==='poll') {
   const verdicts=permissions.deliveries(g);if(verdicts.length)return {permissions:verdicts};
@@ -1296,7 +1315,8 @@ function mcpServerNames(c){
    const conf=JSON.parse(fs.readFileSync(path.join(require('node:os').homedir(),'.claude.json'),'utf8'));
    const cwd=path.join(stateRoot,'workspaces',c.id,'g'+active(c).number);
    for(const n of Object.keys(conf.mcpServers||{}))names.add(n);
-   for(const n of Object.keys(conf.projects?.[cwd]?.mcpServers||{}))names.add(n);
+   // Claude keys a project by its path, with either slash on Windows.
+   for(const key of new Set([cwd,cwd.replace(/\\/g,'/')]))for(const n of Object.keys(conf.projects?.[key]?.mcpServers||{}))names.add(n);
   }catch{}
   for(const n of transcript.connectors(stateRoot,c))names.add(n);
  }
@@ -1556,7 +1576,7 @@ function launcherProblem(exe){
 function agentWritable(real){
  const home=require('node:os').homedir(),real_=p=>{try{return fs.realpathSync.native(p);}catch{return path.resolve(p);}};
  const unsafe=[stateRoot,'/tmp','/private/tmp',...state.conversations.filter(c=>!c.archived).flatMap(c=>agentAccess.of(c).allow.map(a=>a.replace(/^~(?=$|\/)/,home)))].map(real_);
- return unsafe.some(root=>real===root||real.startsWith(root+'/'));
+ return unsafe.some(root=>real===root||real.startsWith(root+path.sep));
 }
 // A built-in check's arguments that name a file or folder may not point where an
 // agent writes: the tool would run what the agent put there.

@@ -7,19 +7,21 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const norm = (p) => path.normalize(p).replace(/(.)\/+$/, '$1');
+const { isWin } = require('./platform.cjs');
+const norm = (p) => path.normalize(p).replace(/(.)[\\/]+$/, '$1');
 
 // Only absolute PATH entries. An empty or relative entry means "the current
 // folder": with an agent's workspace as cwd, `claude` would run ./claude.
 function cleanPath(value = process.env.PATH || '') {
-  return [...new Set(String(value).split(':').filter((d) => d && path.isAbsolute(d)).map(norm))].join(':');
+  return [...new Set(String(value).split(path.delimiter).filter((d) => d && path.isAbsolute(d)).map(norm))].join(path.delimiter);
 }
 
 // The first executable regular file called `name` on the clean PATH: the PATH
-// entry it was found in, and the real file behind it.
+// entry it was found in, and the real file behind it. On Windows a program is
+// name.exe; a .cmd script cannot be started without a shell, so it is not looked for.
 function resolveOnPath(name, value = process.env.PATH) {
-  for (const dir of cleanPath(value).split(':').filter(Boolean)) {
-    const candidate = path.join(dir, name);
+  for (const dir of cleanPath(value).split(path.delimiter).filter(Boolean)) {
+    const candidate = path.join(dir, isWin ? name + '.exe' : name);
     try {
       fs.accessSync(candidate, fs.constants.X_OK);
       const real = fs.realpathSync(candidate);
@@ -33,11 +35,11 @@ function resolveOnPath(name, value = process.env.PATH) {
 // top-level system folder. Those are never added (protecting ~ would make every
 // project ungrantable; /usr/bin is already outside what an agent can be given).
 function tooBroad(dir, home) {
-  const depth = dir.split('/').filter(Boolean).length;
+  const depth = dir.split(/[\\/]/).filter(Boolean).length;
   // Compared as the disk knows them (canonical, below): a home reached through a link
   // (/var and /private/var) is still that home.
   const d = canonical(dir), h = canonical(home);
-  return depth < 2 || d === h || h.startsWith(`${d}/`) || ['/usr/bin', '/usr/sbin', '/usr/lib', '/usr/libexec', '/usr/share', '/bin', '/sbin', '/System', '/Library'].some((top) => d === top.toLowerCase() || d.startsWith(`${top.toLowerCase()}/`));
+  return depth < 2 || d === h || h.startsWith(d + path.sep) || ['/usr/bin', '/usr/sbin', '/usr/lib', '/usr/libexec', '/usr/share', '/bin', '/sbin', '/System', '/Library'].some((top) => d === top.toLowerCase() || d.startsWith(`${top.toLowerCase()}/`));
 }
 
 // The install folder of a program: its folder, or the folder above bin/ (where
@@ -96,10 +98,10 @@ function toolReadRoots({ env = process.env, execPath = process.execPath, home = 
 }
 
 // Paths the person who starts the service names as off limits too
-// (CC_AGENT_PROTECTED_PATHS, colon-separated absolute paths), e.g. another tool's
+// (CC_AGENT_PROTECTED_PATHS, absolute paths separated like PATH: colons, semicolons on Windows), e.g. another tool's
 // program or data folders. Relative or too-broad entries are ignored.
 function extraProtected({ env = process.env, home = os.homedir() } = {}) {
-  return String(env.CC_AGENT_PROTECTED_PATHS || '').split(':').filter((p) => p && path.isAbsolute(p)).map(norm).filter((p) => !tooBroad(p, home));
+  return String(env.CC_AGENT_PROTECTED_PATHS || '').split(path.delimiter).filter((p) => p && path.isAbsolute(p)).map(norm).filter((p) => !tooBroad(p, home));
 }
 
 // A path as the disk knows it, for comparing one with another: its deepest existing
@@ -126,6 +128,6 @@ function canonical(value, hops = 0) {
   }
 }
 // Whether a path is a folder or lies inside it, both compared as the disk knows them.
-const inside = (file, dir) => { const f = canonical(file), d = canonical(dir); return f === d || f.startsWith(d.endsWith('/') ? d : d + '/'); };
+const inside = (file, dir) => { const f = canonical(file), d = canonical(dir); return f === d || f.startsWith(d.endsWith(path.sep) ? d : d + path.sep); };
 
 module.exports = { cleanPath, resolveOnPath, toolRoots, toolReadRoots, extraProtected, tooBroad, canonical, inside };
