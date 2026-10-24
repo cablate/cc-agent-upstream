@@ -15,6 +15,7 @@
 import {TransitionGroup,ref} from 'vue';
 import {f7} from 'framework7-vue';
 import {ct} from '../js/agent-i18n.js';
+import {timeLocale} from '../js/i18n.js';
 import {avatarShape} from '../js/avatarShape.js';
 import {bubbleTime} from '../js/bubbleTime.js';
 import {renderMarkdown,renderTypedMarkdown} from '../js/markdown.js';
@@ -90,7 +91,7 @@ function withOwner(html,m){
  if(!m.mentionsOwner)return html;
  return html.replace(/(^|[^\w@.])@(owner|你)(?![\w.-])/gi,(all,before)=>`${before}<span class="mention-tag owner-tag">@${ct('你')}</span>`);
 }
-const time=s=>bubbleTime(s,{yesterday:ct('昨天')});
+const time=s=>bubbleTime(s,{yesterday:ct('昨天'),locale:timeLocale()});
 // Code blocks carry a copy button, and a click on inline code copies that code. A click that ends a text selection is left to it.
 async function copyText(text){
  try{await navigator.clipboard.writeText(text);}

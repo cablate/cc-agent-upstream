@@ -1,4 +1,5 @@
 import {ct} from './agent-i18n.js';
+import {timeLocale} from './i18n.js';
 
 // How a scope report reads on the review pages: its icon, style and label.
 export function reportMeta(r) {
@@ -12,7 +13,7 @@ export const reportKind = (r) => (r.kind === 'permission' ? ct('要求權限') :
 export function reportTime(at) {
   if (!at) return '';
   const d = new Date(at);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('zh-TW', {month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'});
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString(timeLocale(), {month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'});
 }
 
 export const excerpt = (text, n = 120) => {

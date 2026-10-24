@@ -31,6 +31,7 @@
  </div>
 </template>
 <script>
+import {timeLocale} from '../js/i18n.js';
 import GlassDropdown from "./GlassDropdown.vue";
 import {inject,computed,ref,reactive} from "vue";
 import {f7} from "framework7-vue";
@@ -54,7 +55,7 @@ export default {components:{GlassDropdown},props:{source:Object},setup(props){
  const countText=list=>{const n=list.items.length,d=done(list),b=list.items.filter(i=>i.status==='blocked').length;
   if(!n)return w.ct('沒有項目');if(d===n)return w.ct('全部完成');return d+'/'+n+' '+w.ct('完成')+(b?' · '+w.ct('卡住')+' '+b:'');};
  const when=iso=>{const t=Date.parse(iso||'');if(!Number.isFinite(t))return '';const m=Math.round((Date.now()-t)/60000);
-  if(m<1)return w.ct('剛剛');if(m<60)return m+' '+w.ct('分鐘前');const d=new Date(t);if(Date.now()-t<86400000)return d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});return (d.getMonth()+1)+'/'+d.getDate();};
+  if(m<1)return w.ct('剛剛');if(m<60)return m+' '+w.ct('分鐘前');const d=new Date(t);if(Date.now()-t<86400000)return d.toLocaleTimeString(timeLocale(),{hour:'2-digit',minute:'2-digit'});return (d.getMonth()+1)+'/'+d.getDate();};
  // One change at a time: a second tap on a circle waits for the first, so it steps
 // from what the server has, not from the page's older copy.
 let changing=false;

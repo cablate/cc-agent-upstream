@@ -32,6 +32,15 @@ You run it on your own Mac. Every agent you create is a real `claude` session in
 
 It uses the Claude Code you already have and the subscription you are already signed in with. There is no extra API bill and no cloud service in between.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/architecture-dark.png">
+    <img src=".github/assets/architecture-light.png" alt="How CC Agent fits together: your devices, the CC Agent server, one Claude Code session per agent, and Anthropic">
+  </picture>
+</p>
+
+For every feature in detail, see [docs/FEATURES.md](docs/FEATURES.md).
+
 ## Highlights
 
 <table>

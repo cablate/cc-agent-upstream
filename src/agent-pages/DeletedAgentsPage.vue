@@ -35,6 +35,7 @@
  </f7-page>
 </template>
 <script setup>
+import {timeLocale} from '../js/i18n.js';
 import {ref,computed,inject} from 'vue';
 import {f7} from 'framework7-vue';
 import {api} from '../js/api.js';
@@ -46,7 +47,7 @@ const agents=ref([]),retentionDays=ref(null),loading=ref(false),error=ref(''),bu
 const policy=computed(()=>retentionDays.value
  ?ct('目前設定：刪除')+' '+retentionDays.value+' '+ct('天後永久清除，session 也可能一起刪掉。按「復原」可以把 Agent 拉回清單；關掉「到期清除」就一直保留。')
  :ct('目前設定：不自動清除。按「復原」可以把 Agent 拉回清單，接回原本的 session。'));
-const when=iso=>iso?new Date(iso).toLocaleString('zh-TW',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}):'';
+const when=iso=>iso?new Date(iso).toLocaleString(timeLocale(),{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}):'';
 // Past due, it goes at the next sweep, which runs every six hours.
 const purgeText=a=>!a.purgeAt?ct('不會自動清除'):Date.parse(a.purgeAt)<=Date.now()?ct('已到期，6 小時內永久清除'):ct('將於')+' '+when(a.purgeAt)+' '+ct('永久清除');
 function absorb(r){agents.value=r.agents||[];retentionDays.value=Number.isInteger(r.retentionDays)?r.retentionDays:null;}

@@ -10,6 +10,8 @@ function normalizeLang(l) {
 }
 
 export const lang = ref(normalizeLang(localStorage.getItem(PRODUCT.storageKeys.language) || 'en'));
+// Dates and times follow the app's language: 10:04 AM in English, 上午 10:04 in Chinese.
+export const timeLocale = () => (lang.value === 'en' ? 'en-US' : 'zh-TW');
 
 export function setLang(l, { persist = true } = {}) {
   const next = normalizeLang(l);

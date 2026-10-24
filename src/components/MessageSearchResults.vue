@@ -18,6 +18,7 @@
  </div>
 </template>
 <script setup>
+import {timeLocale} from '../js/i18n.js';
 import {ref,computed,watch,inject,onBeforeUnmount} from 'vue';
 import {ct,searchTotal} from '../js/agent-i18n.js';
 // searcher: a group's own search, in place of the conversations'.
@@ -46,7 +47,7 @@ const when=iso=>{
  if(!iso)return '';
  const d=new Date(iso),today=new Date();
  const sameDay=d.toDateString()===today.toDateString();
- return sameDay?d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false}):d.toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'});
+ return sameDay?d.toLocaleTimeString(timeLocale(),{hour:'2-digit',minute:'2-digit',hour12:false}):d.toLocaleDateString(timeLocale(),{month:'numeric',day:'numeric'});
 };
 // The snippet in pieces, each searched word marked wherever it appears, spaces
 // inside it or not, as the server matched it.

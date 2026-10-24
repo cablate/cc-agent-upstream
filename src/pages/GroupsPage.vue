@@ -40,7 +40,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, Teleport } from 'vue';
 import { f7 } from 'framework7-vue';
-import { t } from '../js/i18n.js';
+import { t, timeLocale } from '../js/i18n.js';
 import { ct } from '../js/agent-i18n.js';
 import { avatarShape, defaultAvatar } from '../js/avatarShape.js';
 import { activeTab } from '../js/tab-session.js';
@@ -75,7 +75,7 @@ const leadName = (g) => g.members.find((m) => m.id === g.lead)?.title || '';
 function when(iso) {
   if (!iso) return '';
   const d = new Date(iso), today = new Date();
-  return d.toDateString() === today.toDateString() ? d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
+  return d.toDateString() === today.toDateString() ? d.toLocaleTimeString(timeLocale(), { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString(timeLocale(), { month: 'numeric', day: 'numeric' });
 }
 function open(g) { props.f7router.navigate('/group/?id=' + encodeURIComponent(g.id)); }
 function openForm(g = null) { editing.value = g; formOpen.value = true; }
