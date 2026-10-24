@@ -88,6 +88,37 @@ function allowedFolder(value) {
   return entry;
 }
 
+// The repository an admin binds a full-access agent to (agent.workspace): where its Claude
+// runs, so the repository's own CLAUDE.md, hooks and skills apply. Absolute, an existing
+// folder, kept as the disk spells it. Never a place CC Agent or the owner's credentials
+// live: its code, its data folder, ~/.claude, ~/.ssh and the folders of the programs agents
+// run with, nor anything above them, nor the whole home or a drive root. The empty string is
+// "none": the agent works in a folder of its own.
+function workspaceFolder(value) {
+  if (typeof value !== 'string') throw fail('工作資料夾必須是文字');
+  const raw = value.trim();
+  if (!raw) return '';
+  if (raw.length > 400 || /[\x00-\x1f\x7f]/.test(raw)) throw fail('工作資料夾的路徑不正確');
+  if (!path.isAbsolute(raw)) throw fail(`工作資料夾必須是絕對路徑：${raw.slice(0, 80)}`);
+  // Refused rather than resolved, as for every folder here.
+  if (raw.split(/[\\/]/).includes('..')) throw fail(`工作資料夾不能含有 "..": ${raw.slice(0, 80)}`);
+  let real;
+  try {
+    real = fs.realpathSync.native(path.resolve(raw));
+    if (!fs.statSync(real).isDirectory()) throw fail(`這不是資料夾：${raw.slice(0, 80)}`);
+  } catch (e) {
+    if (e.status) throw e;
+    throw fail(`找不到這個資料夾：${raw.slice(0, 80)}`);
+  }
+  const home = os.homedir();
+  if (path.parse(real).root === real) throw fail(`不能是整個磁碟：${real}`);
+  if (runtimeTools.inside(home, real)) throw fail(`不能是使用者的家目錄本身或它的上層：${real}。請指定專案資料夾。`);
+  for (const root of canonicalRoots()) {
+    if (runtimeTools.inside(real, root) || runtimeTools.inside(root, real)) throw fail(`這裡放著 CC Agent 自己的程式、資料或金鑰（或在它們的上層）：${real}。請指定其他資料夾。`);
+  }
+  return real;
+}
+
 // A host name, optionally with a leading wildcard label. A wildcard must sit on a
 // name one organisation owns: *.example.org, not *.co.uk or *.github.io, where
 // anyone can have a subdomain.
@@ -157,4 +188,4 @@ function of(conversation) {
 
 const same = (a, b) => JSON.stringify(normalize(a)) === JSON.stringify(normalize(b));
 
-module.exports = { normalize, of, same, allowedFolder, website, mcpServer, protectedRoots, absolute, within, LIMIT };
+module.exports = { normalize, of, same, allowedFolder, workspaceFolder, website, mcpServer, protectedRoots, absolute, within, LIMIT };

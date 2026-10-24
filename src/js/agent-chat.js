@@ -70,7 +70,7 @@ let historyPageRun=0,wheelGestureUsed=false,wheelGestureTimer=0,touchHistoryGest
 const preferenceTerminalSwitch=agentPreferences.terminalSwitch;
 // An admin's new agent starts on the newest Opus at medium, a member's on Sonnet at
 // high; every new agent starts scoped, and full access is switched on by an admin.
-const blankProfile=(forNew)=>{const admin=forNew&&user.value?.role==='admin';return {title:'',description:'',memory:'',model:admin?'claude-opus-5-5':'claude-sonnet-5-5',effort:admin?'medium':'high',...(admin?{access:{allow:[],exclude:[],domains:[]}}:{})};};
+const blankProfile=(forNew)=>{const admin=forNew&&user.value?.role==='admin';return {title:'',description:'',memory:'',model:admin?'claude-opus-5-5':'claude-sonnet-5-5',effort:admin?'medium':'high',...(admin?{access:{allow:[],exclude:[],domains:[]},workspace:'',globalHarness:true}:{})};};
 const newProfile=ref(blankProfile()),profileDraft=ref(blankProfile()),profileSaving=ref(false);
 const editMode=ref(false),orderBusy=ref(false);
 function toggleEdit(){editMode.value=!editMode.value;if(!editMode.value){chosenAgents.value=new Set();attempt(refresh);}}

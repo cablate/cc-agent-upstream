@@ -50,6 +50,18 @@
    <f7-list v-if="allowFull" inset strong-ios class="agent-full" :title="ct('完整權限：這個 Agent 不受範圍限制，讀寫得到這台電腦上你的帳號能碰到的一切，包括金鑰和所有人的對話。只替需要的 Agent 打開。')">
     <f7-list-item ><template #title>{{ct('完整權限')}}<small class="full-flag">（--dangerously-skip-permissions）</small></template><template #after><f7-toggle :checked="!!modelValue.access?.full" @toggle:change="setFull"/></template></f7-list-item>
    </f7-list>
+   <!-- Where a full-access agent works, and whether it also loads the owner's own Claude setup.
+        Not in the scope-only editor, which saves the access scope alone. -->
+   <template v-if="allowFull&&modelValue.access?.full&&!accessOnly">
+    <f7-list inset strong-ios class="agent-workspace">
+     <f7-list-input :label="ct('工作資料夾')" :value="modelValue.workspace||''" @update:value="set('workspace',$event)" :placeholder="ct('留空：用 CC Agent 自己建的資料夾；或填 repo 的絕對路徑，例如 /Users/me/my-repo')" autocapitalize="off" autocorrect="off" spellcheck="false"/>
+    </f7-list>
+    <f7-block-footer class="workspace-note">{{ct('填了之後，這個 Agent 的 Claude 直接在那個 repo 裡工作，repo 自己的 CLAUDE.md、AGENTS.md、.claude/settings.json 的 hooks 與 skills 都會生效；CC Agent 不會在裡面寫任何檔。已經開始的對話改了資料夾會換成新的一代接續。')}}</f7-block-footer>
+    <f7-list inset strong-ios class="agent-global-harness">
+     <f7-list-item :title="ct('載入我的全域設定')"><template #after><f7-toggle :checked="modelValue.globalHarness!==false" @toggle:change="set('globalHarness',$event)"/></template></f7-list-item>
+    </f7-list>
+    <f7-block-footer class="workspace-note">{{ct('關掉後，這個 Agent 不載入你自己的使用者層設定（~/.claude 的 hooks、外掛、skills、CLAUDE.md，以及你自己加在 ~/.claude.json 的 MCP），只用 repo 自己的；claude.ai 連接器仍會載入。')}}</f7-block-footer>
+   </template>
    <f7-list v-if="!(allowFull&&modelValue.access?.full)" inset strong-ios class="agent-access">
     <f7-list-input :label="ct('允許的資料夾')" type="textarea" :value="raw.allow" @update:value="setLines('allow',$event)" :placeholder="ct('每行一個，例如 ~/Desktop/project')" :resizable="true" rows="2"/>
     <f7-list-input :label="ct('排除的資料夾')" type="textarea" :value="raw.exclude" @update:value="setLines('exclude',$event)" :placeholder="ct('允許範圍裡要擋掉的資料夾')" :resizable="true" rows="2"/>
@@ -113,7 +125,8 @@ watch(()=>props.modelValue.access,a=>{for(const k of LISTS){const joined=linesOf
 function setLines(key,text){raw[key]=text;const access={allow:[],exclude:[],domains:[],...(props.modelValue.access||{}),[key]:valuesOf(key,entries(text))};if(!access.mcp?.length)delete access.mcp;if(!access.unsandboxed?.length)delete access.unsandboxed;if(!access.readOnly?.length)delete access.readOnly;emit('update:modelValue',{...props.modelValue,access});}
 const summary=computed(()=>{if(props.modelValue.access?.full)return ct('完整權限');const n=(props.modelValue.access?.allow?.length||0)+(props.modelValue.access?.readOnly?.length||0);return n?ct('工作區＋')+n+ct(' 個資料夾'):ct('只有工作區');});
 // Off removes the key rather than storing false, as the server stores it.
-function setFull(on){const {full,...scope}={allow:[],exclude:[],domains:[],...(props.modelValue.access||{})};emit('update:modelValue',{...props.modelValue,access:on?{...scope,full:true}:scope});}
+// A work folder is a full-access agent's only, so turning full access off clears it.
+function setFull(on){const {full,...scope}={allow:[],exclude:[],domains:[],...(props.modelValue.access||{})};emit('update:modelValue',{...props.modelValue,access:on?{...scope,full:true}:scope,...(on?{}:{workspace:''})});}
 const modelOptions=computed(()=>models(props.admin,props.modelValue.model));
 const effortOptions=computed(()=>efforts(props.admin,props.modelValue.effort));
 // A saved model that is not a Claude model is offered the newest Opus instead.

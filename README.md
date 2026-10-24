@@ -108,6 +108,15 @@ Use the latest release of each dependency: they regularly ship security fixes. T
 
 To reach it from your phone outside your home network, put it behind HTTPS. [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) is the supported way; if you use another reverse proxy, read [SECURITY.md](SECURITY.md) first. Push notifications and passkeys need HTTPS.
 
+## An agent that works in your repository
+
+A full-access agent can be bound to one repository (admins only, in Agent Profile: **Work folder**). Its Claude then starts inside that repository, so the repo's own `CLAUDE.md` / `AGENTS.md`, `.claude/settings.json` hooks and `.claude/skills` apply, exactly as in your terminal. CC Agent writes nothing into the repository or the folders above it: its own files stay in its data folder, its notice to Claude is added to the system prompt, and Discord is switched off for that launch with `--settings`. Deleting the agent removes only its own session files, never the repository or your other sessions in it.
+
+- The folder must exist. It may not be CC Agent's code or data folder, `~/.claude`, `~/.ssh`, your home folder (or anything above it) or a drive root. Scoped agents cannot have one.
+- **Load my global setup** (on by default) decides whether that Claude also loads your user-level Claude setup: `~/.claude/settings.json` hooks and plugins, global skills, `~/.claude/CLAUDE.md` and the MCP servers you added in `~/.claude.json`. Off, it uses only the repo's own; your claude.ai connectors still load, and plugins installed through Claude Code mods are not under this switch.
+- A repo's own `.mcp.json` stays the repo's: CC Agent neither writes nor removes it, and its servers start with the agent (measured: bypass mode asks for no approval).
+- Claude can resume a session only from the folder it began in, so changing the folder of an agent that has started moves it to a new generation (the usual handoff keeps the conversation).
+
 ## Getting started
 
 ```sh
