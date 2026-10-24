@@ -138,7 +138,6 @@ CC Agent 目前只在 Apple 晶片的 macOS 上部署過。要在其他系統上
 - **Linux：** `npm install` 之前先裝好 C++ 編譯工具。終端機檢視用的 node-pty 沒有 Linux 的現成版本，安裝時會現場編譯。
 - **Windows（實驗性）：** 可以在 Windows 11 原生執行，用 [psmux](https://psmux.pages.dev) 取代 tmux（`scoop install psmux` 會把 `tmux.exe` 放進 PATH），也可以在 WSL 裡執行。原生執行還需要 [Git for Windows](https://git-scm.com/download/win)：Claude Code 的 shell 工具要透過 Git 的 `bash.exe` 執行，CC Agent 會自己找到它（也可以用 `CLAUDE_CODE_GIT_BASH_PATH` 指定）。Windows 上的差異：
   - 只能執行**完整權限**的 agent。Windows 上的 Claude Code 沒有沙箱，有範圍限制的 agent（預設）會拒絕啟動並說明原因；請管理員為它開啟完整權限。
-  - 會執行程式的內建檢查（`server/scheduleChecks.js`）在 Windows 上未驗證：它啟動時用的是 macOS 與 Linux 的 `PATH`。
   - 稽核日誌的輪替不會運作（它需要 Windows 沒有的 `O_NOFOLLOW`），所以 `server/logs/api-audit.log` 只會一直變大。
   - 最後一個 agent 停止後，psmux 會為每個 instance 留一個閒置的小型背景程序；用 `tmux -L cc-agent-<hash> kill-server` 結束它（名稱可在 `%USERPROFILE%.psmux` 找到）。
 - **只能在 macOS 用的部分：** 排程的背景腳本在 macOS 沙盒裡執行；Claude 用量從 macOS 鑰匙圈讀 Claude Code 的登入（Windows 上改讀 `~/.claude/.credentials.json`）。在其他系統上，這兩項目前還不能用。
