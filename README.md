@@ -139,7 +139,7 @@ So far CC Agent has only been deployed on macOS with Apple silicon. If you run i
 - **Windows (experimental):** it runs natively on Windows 11 with [psmux](https://psmux.pages.dev) in place of tmux (`scoop install psmux` puts a `tmux.exe` on your PATH), or inside WSL. Natively you also need [Git for Windows](https://git-scm.com/download/win): Claude Code runs its shell tool through Git's `bash.exe`, which CC Agent finds by itself (or set `CLAUDE_CODE_GIT_BASH_PATH`). What is different there:
   - Only **full-access** agents run. Claude Code has no sandbox on Windows, so a scoped agent (the default) refuses to start and says why; an admin turns on full access for it.
   - Audit-log rotation is off (it needs `O_NOFOLLOW`, which Windows does not have), so `server/logs/api-audit.log` only grows.
-  - psmux keeps one small idle background process per instance after the last agent stops; `tmux -L cc-agent-<hash> kill-server` ends it (the name is in `%USERPROFILE%.psmux`).
+  - psmux keeps one small idle background process per instance after the last agent stops; `tmux -L cc-agent-<hash> kill-server` ends it (the name is in `%USERPROFILE%\.psmux`).
 - **macOS-only parts:** background scripts in schedules run in the macOS sandbox, and the Claude usage meter reads Claude Code's login from the macOS Keychain (on Windows, from `~/.claude/.credentials.json`). Elsewhere, these two do not work yet.
 
 If you get it running somewhere new, an issue describing what you had to change is welcome.
