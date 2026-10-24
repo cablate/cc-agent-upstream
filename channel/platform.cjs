@@ -10,6 +10,11 @@ const path = require('node:path');
 
 const isWin = process.platform === 'win32';
 
+// psmux keeps a standby server with spare shells ready for the next session, and leaves
+// it behind after the last one ends. Agents start rarely and wait on Claude Code far
+// longer than on a shell, so it is off for every tmux this process and its children run.
+if (isWin && process.env.PSMUX_NO_WARM === undefined) process.env.PSMUX_NO_WARM = '1';
+
 // Shown wherever a scoped agent would have to start.
 const SCOPED_UNSUPPORTED = 'Windows 上的 Claude Code 沒有沙箱，無法限制 Agent 的範圍，因此只能執行「完整權限」的 Agent。請由管理員在這個 Agent 的設定開啟完整權限後再啟動。';
 
@@ -22,7 +27,7 @@ const tmpBase = () => (isWin ? os.tmpdir() : '/tmp');
 
 // What a Windows program needs to start and to find the user's files: without
 // SystemRoot, node cannot open sockets; without USERPROFILE, Claude cannot find ~/.claude.
-const WIN_ENV = ['USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'SystemRoot', 'SystemDrive', 'windir', 'COMSPEC', 'PATHEXT', 'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432', 'CommonProgramFiles', 'ALLUSERSPROFILE', 'PUBLIC', 'USERNAME', 'USERDOMAIN', 'COMPUTERNAME', 'OS', 'PROCESSOR_ARCHITECTURE', 'NUMBER_OF_PROCESSORS', 'TEMP', 'TMP', 'CLAUDE_CODE_GIT_BASH_PATH'];
+const WIN_ENV = ['USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'SystemRoot', 'SystemDrive', 'windir', 'COMSPEC', 'PATHEXT', 'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432', 'CommonProgramFiles', 'ALLUSERSPROFILE', 'PUBLIC', 'USERNAME', 'USERDOMAIN', 'COMPUTERNAME', 'OS', 'PROCESSOR_ARCHITECTURE', 'NUMBER_OF_PROCESSORS', 'TEMP', 'TMP', 'CLAUDE_CODE_GIT_BASH_PATH', 'PSMUX_NO_WARM'];
 
 const isFile = (file) => { try { return fs.statSync(file).isFile(); } catch { return false; } };
 
