@@ -1600,8 +1600,10 @@ function launcherProblem(exe){
  // path typed in another case would otherwise slip past the folders an agent can write.
  let real,st;try{real=fs.realpathSync.native(exe);st=fs.statSync(real);fs.accessSync(real,fs.constants.X_OK);}catch{return '找不到這個執行檔，或沒有執行權限';}
  if(!st.isFile())return '指令必須是一個執行檔';
- const uid=process.getuid?.(),folder=fs.statSync(path.dirname(real));
- if((uid!==undefined&&![uid,0].includes(st.uid))||(st.mode&0o022)||(folder.mode&0o022))return '指令的執行檔必須屬於這個服務的帳號，而且其他人不能修改';
+ if(process.platform!=='win32'){
+  const uid=process.getuid?.(),folder=fs.statSync(path.dirname(real));
+  if((uid!==undefined&&![uid,0].includes(st.uid))||(st.mode&0o022)||(folder.mode&0o022))return '指令的執行檔必須屬於這個服務的帳號，而且其他人不能修改';
+ }
  if(agentWritable(real))return '指令不能放在 agent 寫得到的地方';
  return null;
 }
@@ -1609,17 +1611,18 @@ function launcherProblem(exe){
 function agentWritable(real){
  const home=require('node:os').homedir(),real_=p=>{try{return fs.realpathSync.native(p);}catch{return path.resolve(p);}};
  // A bound agent's repository is as writable to it as a folder granted to a scoped one.
- const unsafe=[stateRoot,'/tmp','/private/tmp',...state.conversations.filter(c=>!c.archived).flatMap(c=>[...agentAccess.of(c).allow.map(a=>a.replace(/^~(?=$|\/)/,home)),...(c.workspace?[c.workspace]:[])])].map(real_);
+ const unsafe=[stateRoot,'/tmp','/private/tmp',...(platform.isWin?[platform.tmpBase()]:[]),...state.conversations.filter(c=>!c.archived).flatMap(c=>[...agentAccess.of(c).allow.map(a=>a.replace(/^~(?=$|\/)/,home)),...(c.workspace?[c.workspace]:[])])].map(real_);
  return unsafe.some(root=>real===root||real.startsWith(root+path.sep));
 }
 // A built-in check's arguments that name a file or folder may not point where an
 // agent writes: the tool would run what the agent put there.
 function checkArgumentProblem(arg){
- if(typeof arg!=='string'||!/^[~/.]/.test(arg))return null;
+ if(typeof arg!=='string'||!(/^[~/.]/.test(arg)||(process.platform==='win32'&&/^(?:[a-z]:|\\)/i.test(arg))))return null;
  // The native call returns the path as the volume has it: on a case-insensitive one an
  // argument typed in another case would otherwise slip past agentWritable (the program
  // itself was already checked this way).
- let real;try{real=fs.realpathSync.native(arg.replace(/^~(?=$|\/)/,require('node:os').homedir()));}catch{return null;}
+ const home=require('node:os').homedir();
+ let real;try{real=fs.realpathSync.native(path.resolve(home,arg.replace(/^~(?=$|\/)/,home)));}catch{return null;}
  return agentWritable(real)?'參數 '+arg+' 指向 agent 寫得到的地方':null;
 }
 // One agent's own compact policy, or null to follow the setting again; the setting no longer overwrites an agent that has its

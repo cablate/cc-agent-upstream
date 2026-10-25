@@ -1,14 +1,15 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const { Tail, lastJsonObject } = require('./scriptSandbox');
+const platform = require('../channel/platform.cjs');
 
 // Built-in checks: read-only commands the owner lists by hand in
 // .local/schedule-checks.json, for checks a sandboxed script cannot do, such as
 // an upgrade check reading its own repository. Neither the page nor an
 // agent can add one; a schedule only names it. Each runs as the owner's user
-// without a shell, with PATH, HOME and LANG only, a timeout and bounded output,
+// without a shell, with PATH, HOME, LANG and Windows' required environment, a timeout and bounded output,
 // and prints one JSON object as its last line, like a background script. Its
 // input is {lastKey} only. Whatever it reads from a folder an agent can write is
 // data to it, never code to run: arguments naming such places are refused.
@@ -16,7 +17,7 @@ const { Tail, lastJsonObject } = require('./scriptSandbox');
 // {"checks":[{"id":"claude-upgrade","name":"Claude Code new release",
 //   "command":["/abs/path/to/check","--json"],"timeoutSeconds":120}]}
 const ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
-const PATH_ENV = '/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin';
+const PATH_ENV = process.platform === 'win32' ? process.env.PATH : '/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin';
 const OUTPUT_MAX = 256 * 1024;
 
 function create(stateRoot, { problemOf = () => null, argumentProblemOf = () => null } = {}) {
@@ -66,21 +67,35 @@ function create(stateRoot, { problemOf = () => null, argumentProblemOf = () => n
       let total = 0, timedOut = false, flooded = false, done = false;
       let child;
       try {
-        child = spawn(real, c.command.slice(1), { cwd: os.homedir(), detached: true, stdio: ['pipe', 'pipe', 'pipe'], env: { PATH: PATH_ENV, HOME: os.homedir(), LANG: 'en_US.UTF-8' } });
+        const env = { PATH: PATH_ENV, HOME: os.homedir(), LANG: 'en_US.UTF-8' };
+        if (platform.isWin) for (const key of platform.WIN_ENV) if (process.env[key] !== undefined) env[key] = process.env[key];
+        child = spawn(real, c.command.slice(1), { cwd: os.homedir(), detached: true, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env });
       } catch (e) { resolve(failed('內建檢查無法啟動：' + e.message)); return; }
-      const kill = () => { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* gone */ } };
+      const kill = () => {
+        if (!child.pid) return null;
+        if (process.platform === 'win32') {
+          if (child.exitCode !== null || child.signalCode !== null) return child.stdout.closed && child.stderr.closed ? null : '內建檢查已結束，無法確認子程序已終止';
+          const r = spawnSync(path.join(process.env.SystemRoot || process.env.windir || 'C:/Windows', 'System32', 'taskkill.exe'), ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, encoding: 'utf8', timeout: 10000 });
+          if (r.status === 0) return null;
+          try { process.kill(child.pid, 0); } catch (e) { if (e.code === 'ESRCH') return null; }
+          return '無法終止內建檢查：' + (r.error?.message || r.stderr?.trim() || `taskkill ${r.status}`);
+        }
+        try { process.kill(-child.pid, 'SIGKILL'); } catch (e) { if (e.code !== 'ESRCH') return '無法終止內建檢查：' + e.message; }
+        return null;
+      };
       // A process it left behind may hold the pipes open for ever: the run ends at
       // the timeout, or a second after the command itself exits, not at 'close'.
-      const timer = setTimeout(() => { timedOut = true; kill(); finish(null, 'SIGKILL'); }, c.timeoutSeconds * 1000);
-      const count = (tail) => (chunk) => { total += chunk.length; if (total > OUTPUT_MAX * 4 && !flooded) { flooded = true; kill(); } tail.push(chunk); };
+      const timer = setTimeout(() => { timedOut = true; finish(null, process.platform === 'win32' ? null : 'SIGKILL'); }, c.timeoutSeconds * 1000);
+      const count = (tail) => (chunk) => { total += chunk.length; tail.push(chunk); if (total > OUTPUT_MAX * 4 && !flooded) { flooded = true; finish(null, process.platform === 'win32' ? null : 'SIGKILL'); } };
       child.stdout.on('data', count(stdout));
       child.stderr.on('data', count(stderr));
       child.stdin.on('error', () => {});
       child.stdin.end(JSON.stringify(input));
       const finish = (code, signal, error) => {
-        if (done) return; done = true; clearTimeout(timer); kill();
+        if (done) return; done = true; clearTimeout(timer); const killError = kill();
+        if (killError) { error = killError; signal = null; }
         for (const stream of [child.stdout, child.stderr]) stream.destroy();
-        const json = !timedOut && !flooded && code === 0 ? lastJsonObject(stdout.text()) : null;
+        const json = !killError && !timedOut && !flooded && code === 0 ? lastJsonObject(stdout.text()) : null;
         const ok = Boolean(json);
         resolve({ ok, exitCode: code ?? null, signal: signal || null, timedOut, durationMs: Date.now() - started, json,
           stdoutTail: stdout.text(4096), stderrTail: stderr.text(4096),
