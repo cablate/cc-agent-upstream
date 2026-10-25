@@ -62,6 +62,7 @@ import {ref,reactive,computed,watch,nextTick,onBeforeUnmount,Teleport} from 'vue
 import {f7} from 'framework7-vue';
 import {ct} from '../js/agent-i18n.js';
 import {renderMarkdown} from '../js/markdown.js';
+import {diffLines as classifyDiff} from '../js/diffLines.js';
 import {saveFile as keepFile,sharesFiles} from '../js/saveFile.js';
 const props=defineProps({file:Object,conversationId:String});
 const imageUrl=ref(''),loading=ref(false),error=ref('');let controller;
@@ -83,7 +84,7 @@ const isMedia=computed(()=>isAudio.value||isVideo.value);
 const TEXT=/\.(md|markdown|txt|text|log|csv|tsv|json|jsonl|ya?ml|diff|patch|toml|ini|conf|cfg|xml|html?|css|scss|js|mjs|cjs|jsx|ts|tsx|vue|py|rb|go|rs|java|kt|swift|c|h|cpp|hpp|cs|php|sh|zsh|bash|sql|env|gitignore|dockerfile)$/i,TEXT_LIMIT=1<<20;
 const isDiff=computed(()=>!!props.file&&/\.(diff|patch)$/i.test(props.file.name));
 // A diff's lines, each with the kind that colours it.
-const diffLines=computed(()=>isDiff.value?text.value.split('\n').map(line=>({line,kind:/^(\+\+\+|---)\s/.test(line)||/^diff |^index /.test(line)?'file':line.startsWith('@@')?'hunk':line.startsWith('+')?'add':line.startsWith('-')?'del':''})):[]);
+const diffLines=computed(()=>isDiff.value?classifyDiff(text.value):[]);
 const isText=computed(()=>!!props.file&&TEXT.test(props.file.name));
 const isMarkdown=computed(()=>!!props.file&&/\.(md|markdown)$/i.test(props.file.name));
 // The server shows a page up to 8 MB; a larger one stays source.

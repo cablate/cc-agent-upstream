@@ -8,20 +8,24 @@ export const compactThreshold = ref(5);
 export const terminalSwitch = ref(false);
 // The Transcript column's button; off until an admin switches it on.
 export const transcriptSwitch = ref(false);
+export const terminalPromptReminder = ref(false);
 // Days a deleted agent is kept before it is purged, or null for never (the default).
 export const archiveRetentionDays = ref(null);
 // The wrap-up check sent to an agent that finished a task: on or off,
 // the minutes it sits idle first, and its words.
 export const wrapUp = ref({enabled: false, minutes: 10, text: '', custom: false});
 export const preferencesLoaded = ref(false);
+export const scopedAgents = ref(null);
 
 function absorb(preferences) {
   if (!preferences || typeof preferences !== 'object') return preferences;
   if (Number.isInteger(preferences.compactThreshold)) compactThreshold.value = preferences.compactThreshold;
   terminalSwitch.value = preferences.terminalSwitch === true;
   transcriptSwitch.value = preferences.transcriptSwitch === true;
+  terminalPromptReminder.value = preferences.terminalPromptReminder === true;
   if (preferences.wrapUp && typeof preferences.wrapUp === 'object') wrapUp.value = preferences.wrapUp;
   archiveRetentionDays.value = Number.isInteger(preferences.archiveRetentionDays) ? preferences.archiveRetentionDays : null;
+  scopedAgents.value = typeof preferences.scopedAgents === 'boolean' ? preferences.scopedAgents : null;
   preferencesLoaded.value = true;
   return preferences;
 }
@@ -37,10 +41,13 @@ export async function saveAgentPreferences(patch) {
 // One's own Agents list: whether the latest conversation moves to the top. Off by
 // default. Everyone's own, so not admin-only.
 // Its groups, in order, titled like the sections of Settings.
+export const uxFeatureKeys = ["desktopRail","attentionPanel","statusColors","messageStatus","readingEnhancements","mobilePause"];
+export const uxFeatures = ref(Object.fromEntries(uxFeatureKeys.map(key=>[key,false])));
 export const autoSort = ref(false);
 export const listGroups = ref([]);
 export function absorbList(preferences) {
   autoSort.value = preferences?.autoSort === true;
+  uxFeatures.value = Object.fromEntries(uxFeatureKeys.map(key=>[key,preferences?.uxFeatures?.[key]===true]));
   listGroups.value = Array.isArray(preferences?.groups) ? preferences.groups : [];
   return preferences;
 }

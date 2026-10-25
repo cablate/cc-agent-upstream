@@ -40,12 +40,14 @@
 <GlassDropdown :open="!!menuConversation" :point="menuPoint" :items="user?.role==='admin'?[{value:'rename',label:ct('重新命名'),icon:'pencil'},{value:'remove',label:ct('刪除'),icon:'trash',danger:true}]:[]" @close="menuConversation=null" @select="menuAction"/></template>
 <script>
 import AgentProfileFields from "./AgentProfileFields.vue";
+import {scopedAgents} from "../js/agentPreferences.js";
 import AgentProfilePanel from "./AgentProfilePanel.vue";
 import MessageSearchResults from "./MessageSearchResults.vue";
 import ChecklistPanel,{askNewChecklist} from "./ChecklistPanel.vue";
 import {inject,computed,ref,watch,onBeforeUnmount} from "vue";import {f7} from "framework7-vue";import GlassDropdown from "./GlassDropdown.vue";import {parseAgentJson} from "../js/agentImport.js";import {ct} from "../js/agent-i18n.js";
 export default {components:{GlassDropdown,AgentProfileFields,AgentProfilePanel,MessageSearchResults,ChecklistPanel},setup(){const w=inject("workspace");
  const personal=computed(()=>w.user.value?.role==="admin");
+ watch([()=>w.newOpen.value,scopedAgents],([open,scoped])=>{if(open&&personal.value&&scoped===false&&!w.newProfile.value.access?.full)w.newProfile.value={...w.newProfile.value,access:{...w.newProfile.value.access,full:true}};});
  const importText=ref(""),importNote=ref(""),importDone=ref(false),importRow=ref(null);
  // Each opening of the sheet starts the import empty.
  watch(()=>w.newOpen.value,open=>{if(open){importText.value="";importNote.value="";importDone.value=false;}});

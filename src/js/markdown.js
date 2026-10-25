@@ -1,8 +1,11 @@
 import MarkdownIt from 'markdown-it';
+import {diffLines} from './diffLines.js';
+import {uxFeatures} from './agentPreferences.js';
 
 // Model output is untrusted: raw HTML and remote image loading are disabled.
 function configure() {
   const md = new MarkdownIt({html: false, linkify: true, breaks: true});
+  md.options.highlight=(text,language)=>uxFeatures.value.readingEnhancements&&/^(diff|patch)$/i.test(language)?diffLines(text).map(({line,kind})=>kind?`<span class="diff-${kind}">${md.utils.escapeHtml(line)}</span>`:md.utils.escapeHtml(line)).join('\n'):'';
   md.disable('image');
   // A wide table scrolls sideways in its own box rather than widening the bubble.
   // Not F7's `data-table` class: that is F7's list-style data table, with 48 px rows

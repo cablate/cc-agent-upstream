@@ -27,7 +27,7 @@
   </div></div>
   <input ref="fileInput" type="file" multiple hidden @change="pickFiles"/>
   <div ref="composer" class="split-composer" :inert="locked">
-   <ChatComposer v-if="detail" :highlights="mention.current.value.map(m=>'@'+m.title)" :editor-id="null" v-model:value="draft" :placeholder="ct('輸入訊息…')" @keydown="composerKeydown">
+   <ChatComposer :sending="sending" v-if="detail" :highlights="mention.current.value.map(m=>'@'+m.title)" :editor-id="null" v-model:value="draft" :placeholder="ct('輸入訊息…')" @keydown="composerKeydown">
     <template #inner-start><f7-link icon-only icon-f7="plus" class="split-attach" :aria-label="ct('加入附件')" :class="{disabled:sending}" @click="chooseFiles"/></template>
     <template #before-inner><div v-if="files.length" class="split-drafts" :aria-label="ct('附件')">
      <f7-preloader v-if="sending" :size="18"/>

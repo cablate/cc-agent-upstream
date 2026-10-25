@@ -671,7 +671,9 @@ const english = {
   "帳號已停用": "Disabled",
   "拖曳調整順序": "Drag to reorder",
   
-  "清單剛剛變了，已重新載入，請再排一次。": "The list changed meanwhile and was reloaded; please order it again."
+  "清單剛剛變了，已重新載入，請再排一次。": "The list changed meanwhile and was reloaded; please order it again.",
+  // ux-chat
+  "暫停會停下整個 Agent，之後要手動啟動；只想停這一輪請用停止鈕或 Esc。聊天紀錄仍會保留。": "Pausing stops the entire agent. You will need to start it manually later. To stop only this turn, use the stop button or Esc. Chat history is kept."
 };
 // {product} in a text is the product's name (productConfig.js), so the account and
 // settings texts need no product name of their own.

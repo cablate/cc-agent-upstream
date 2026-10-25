@@ -9,6 +9,7 @@ import {ref,computed,watch} from 'vue';
 import {f7} from 'framework7-vue';
 import {api} from './api.js';
 import {ct} from './agent-i18n.js';
+import {uxFeatures} from './agentPreferences.js';
 import {agentActivity} from './agentActivity.js';
 import * as agentOperation from './agentOperation.js';
 
@@ -39,7 +40,7 @@ export function useCellAgent({workspace, conversationId, detail, refresh, profil
   if(operation.value)return;
   return attempt(async()=>{const d=await api('/conversations/'+id+'/'+name,{method:'POST',body:JSON.stringify(body)});await refresh();return d;});
  }
- const pause=()=>f7.dialog.confirm(ct("暫停會中斷執行中的回覆。聊天紀錄仍會保留。"),ct("暫停執行"),()=>action('stop'));
+ const pause=()=>f7.dialog.confirm(ct(uxFeatures.value.mobilePause?"暫停會停下整個 Agent，之後要手動啟動；只想停這一輪請用停止鈕或 Esc。聊天紀錄仍會保留。":"暫停會中斷執行中的回覆。聊天紀錄仍會保留。"),ct("暫停執行"),()=>action('stop'));
  const restart=()=>f7.dialog.confirm(ct("重啟會中斷執行中的回覆，並接回同一個 session。聊天紀錄仍會保留。"),ct("重啟"),async()=>{if(await action('stop'))await action('start');});
  const handoff=()=>f7.dialog.confirm(ct("保存記憶與近期討論，接續到新的 Claude session？"),ct("接續對話"),()=>action('rotate'));
  async function importHistory(){

@@ -6,6 +6,7 @@
     <f7-block-title>{{ t('sectionAgent') }}</f7-block-title>
     <f7-list inset class="cc-settings-list">
       <f7-list-item :title="ct('Agents 自動排序')" class="auto-sort"><template #media><f7-icon f7="arrow_up_arrow_down"/></template><template #after><label class="toggle"><input type="checkbox" :aria-label="ct('Agents 自動排序')" :checked="autoSort" @change="saveAutoSort($event.target.checked)"/><span class="toggle-icon"></span></label></template></f7-list-item>
+      <f7-list-item v-for="key in uxFeatureKeys" :key="key" :title="t('uxSetting_'+key)" :footer="t('uxSetting_'+key+'Hint')" :class="'ux-setting-'+key"><template #media><f7-icon f7="slider_horizontal_3"/></template><template #after><label class="toggle"><input type="checkbox" :aria-label="t('uxSetting_'+key)" :checked="uxFeatures[key]" @change="saveUxFeature(key,$event.target.checked)"/><span class="toggle-icon"></span></label></template></f7-list-item>
     </f7-list>
 
     <f7-block-title>{{ t('sectionSystem') }}</f7-block-title>
@@ -102,7 +103,7 @@ import { updateDialog, setUpdateDialog } from '../js/updatePrompt.js';
 import { fetchLatestBuildId, hasNewVersion } from '../versionCheck.js';
 import GlassDropdown from '../components/GlassDropdown.vue';
 
-import {autoSort,loadListPreferences,saveListPreferences} from '../js/agentPreferences.js';
+import {autoSort,uxFeatures,uxFeatureKeys,loadListPreferences,saveListPreferences} from '../js/agentPreferences.js';
 onMounted(async()=>{try{await loadListPreferences();}catch{}});
 // Whether one's own Agents list puts the latest conversation first; off by default.
 async function saveAutoSort(on){
@@ -110,6 +111,12 @@ async function saveAutoSort(on){
   autoSort.value=on;
   try{await saveListPreferences({autoSort:on});toast(t('settingsSaved'));}
   catch(e){autoSort.value=previous;f7.dialog.alert(e.message||t('settingsFailed'));}
+}
+async function saveUxFeature(key,on){
+  const previous=uxFeatures.value[key];
+  uxFeatures.value={...uxFeatures.value,[key]:on};
+  try{await saveListPreferences({uxFeatures:{[key]:on}});toast(t('settingsSaved'));}
+  catch(e){uxFeatures.value={...uxFeatures.value,[key]:previous};f7.dialog.alert(e.message||t('settingsFailed'));}
 }
 // Vite injects __BUILD_ID__, a Git description (vite.config.js); the footer shows it
 // so a running build can be confirmed at a glance without DevTools.
