@@ -865,7 +865,7 @@ function onEscape(event){
  event.preventDefault();interruptTurn();
 }
 // Copying code from the bubbles lives with the bubbles, in components/MessageList.vue.
-function pause(){f7.dialog.confirm(ct("暫停會中斷執行中的回覆。聊天紀錄仍會保留。"),ct("暫停執行"),()=>action('stop'));}
+function pause(){f7.dialog.confirm(ct("暫停會停下整個 Agent，之後要手動啟動；只想停這一輪請用停止鈕或 Esc。聊天紀錄仍會保留。"),ct("暫停執行"),()=>action('stop'));}
 // A pause and a start, so it also ends a turn still running; the session and chat are kept.
 function restart(){f7.dialog.confirm(ct("重啟會中斷執行中的回覆，並接回同一個 session。聊天紀錄仍會保留。"),ct("重啟"),async()=>{if(await action('stop'))await action('start');});}
 // From a row's swipe on the Agents list, for that agent rather than the open one.

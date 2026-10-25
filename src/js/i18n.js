@@ -37,6 +37,14 @@ const dict = {
     navAttention_schedule: 'Schedules awaiting approval',
     navAttentionRefreshFailed: 'Could not refresh reports and schedules. Try again when the connection returns.',
     // /ux-nav
+    // ux-chat
+    uxChatQueued: 'Waiting for agent pickup',
+    uxChatDelivered: 'Handed to agent',
+    uxChatReplied: 'Replied',
+    uxChatInterrupted: 'Interrupted',
+    uxChatUnanswered: 'No final reply received',
+    uxChatSending: 'Sending…',
+    uxChatPause: 'Pause agent',
     back: '← Back',
     tabChat: 'Agents',
     tabGroups: 'Groups',
@@ -154,6 +162,14 @@ const dict = {
     navAttention_schedule: '待核准排程',
     navAttentionRefreshFailed: '報告與排程暫時無法更新，連線恢復後會再試。',
     // /ux-nav
+    // ux-chat
+    uxChatQueued: '等待 Agent 接收',
+    uxChatDelivered: '已交給 Agent',
+    uxChatReplied: '已回覆',
+    uxChatInterrupted: '已中斷',
+    uxChatUnanswered: '沒收到最終回覆',
+    uxChatSending: '送出中',
+    uxChatPause: '暫停 Agent',
     back: '← 上一步',
     tabChat: 'Agents',
     tabGroups: '群組',

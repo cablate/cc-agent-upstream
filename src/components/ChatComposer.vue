@@ -1,6 +1,7 @@
 <template>
  <div class="toolbar messagebar">
   <slot name="before-inner"/>
+  <span v-if="sending" class="composer-sending" role="status">{{t('uxChatSending')}}</span>
   <div ref="pill" class="toolbar-inner composer-pill" :class="{'composer-tall':tall}">
    <div class="toolbar-pane composer-start" :class="{'composer-empty':!$slots['inner-start']}"><slot name="inner-start"/></div>
    <div ref="area" class="messagebar-area">
@@ -20,8 +21,11 @@
  </div>
 </template>
 <script setup>
-import {ref,watch,onMounted,onBeforeUnmount,nextTick} from 'vue';
+import {ref,computed,inject,watch,onMounted,onBeforeUnmount,nextTick} from 'vue';
+import {t} from '../js/i18n.js';
 import {paintMentions} from '../js/mentionHighlight.js';
+const workspace=inject('workspace',null);
+const sending=computed(()=>!!workspace?.busy?.value&&!!(workspace?.draft?.value?.trim()||workspace?.files?.value?.length)&&!!workspace?.detail?.value&&['ready','busy'].includes(workspace.detail.value.phase));
 // editorId: the conversation page's own box is #cc-agent-prompt; a split-view cell's
 // boxes, several on one page, have none.
 const props=defineProps({value:{type:String,default:''},placeholder:String,highlights:{type:Array,default:()=>[]},editorId:{type:String,default:'cc-agent-prompt'}});
@@ -100,6 +104,7 @@ onBeforeUnmount(()=>{paintMentions(own,[]);resized?.disconnect();widened?.discon
 </script>
 <style scoped>
 .messagebar-area {position:relative;}
+.composer-sending {position:absolute;right:24px;bottom:100%;padding:3px 8px;border-radius:8px;background:var(--f7-page-bg-color);color:var(--cc-color-text-secondary);font-size:12px;}
 /* Laid out exactly as the editor: same box, padding, border width, font and wrapping. */
 .mention-mirror {position:absolute;z-index:1;pointer-events:none;box-sizing:border-box;overflow:hidden;
  padding:var(--f7-messagebar-textarea-padding);border:var(--f7-messagebar-textarea-border);border-color:transparent;
