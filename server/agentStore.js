@@ -734,8 +734,9 @@ function addressAgent(c,address){
 }
 function relayPeer(c,r){
  const id=socketAgentId(r.from);
- const peer=id?state.conversations.find(x=>x.owner===c.owner&&x.id.startsWith(id)):r.direction==='in'?addressAgent(c,r.from):state.conversations.find(x=>x.owner===c.owner&&!x.archived&&x.title===r.name)||addressAgent(c,r.name);
- return peer?{peerId:peer.id,peerName:peer.title}:{peerId:null,peerName:r.name&&!isAddress(r.name)?r.name:'另一個 session'};
+function windowsPeer(c,r){return r.direction==='in'?addressAgent(c,r.from):state.conversations.find(x=>x.owner===c.owner&&!x.archived&&x.title===r.name)||addressAgent(c,r.name);}
+ const peer=id?state.conversations.find(x=>x.owner===c.owner&&x.id.startsWith(id)):platform.isWin?windowsPeer(c,r):r.direction==='out'?state.conversations.find(x=>x.owner===c.owner&&!x.archived&&x.title===r.name):null;
+ return peer?{peerId:peer.id,peerName:peer.title}:{peerId:null,peerName:platform.isWin&&isAddress(r.name)?'另一個 session':r.name||'另一個 session'};
 }
 // A message from outside the group an agent works for, once handed to it, is other work.
 function leaveGroupFor(c,r,peerId){
@@ -1030,7 +1031,7 @@ function bridge(c,action,data={}) {
  // bootstrap completes the handshake too, and ready stays harmless when it follows.
  // The channel polls from the moment it starts, so the address is known before the
  // model has called any tool; it saves only when the address is new.
- if(action==='bootstrap'||action==='ready'||action==='poll')registerAddress(c,g,data.address);
+ if(platform.isWin&&(action==='bootstrap'||action==='ready'||action==='poll'))registerAddress(c,g,data.address);
  if(action==='bootstrap'){if(['starting','error'].includes(g.phase)&&!g.compacting){markReady(c,g);save(c);}return {profile:agentProfile.profile(c),memory:c.memory,handoff:c.handoff||null,reference:referenceInfo(c),checklists:checklists.summary(c)};}
  if(action==='poll') {
   const verdicts=permissions.deliveries(g);if(verdicts.length)return {permissions:verdicts};
