@@ -7,7 +7,7 @@ const configPath=process.argv[2],config=JSON.parse(fs.readFileSync(configPath,'u
 if(['launcher','launchCommand','native','noEffort'].some(k=>Object.hasOwn(config,k)))throw new Error('Only native Claude runtime configuration is supported');
 if(config.model!==undefined&&(typeof config.model!=='string'||!/^claude-[a-z0-9][a-z0-9.-]{0,80}$/.test(config.model)))throw new Error('Invalid Claude model');
 if(config.effort!==undefined&&!['low','medium','high','xhigh','max'].includes(config.effort))throw new Error('Invalid Claude effort');
-const quote=s=>"'"+platform.shellPath(s).replace(/'/g,"'\\''")+"'";
+const quote=s=>platform.isWin?"'"+platform.shellPath(s).replace(/'/g,"'\\''")+"'":"'"+s.replace(/'/g,"'\\''")+"'";
 const homeDir=platform.homeDir();
 // Beside the runtime config, outside the workspace the agent can write (agentStore.js).
 const controlDir=path.dirname(configPath);
@@ -89,7 +89,7 @@ const OUTSIDE_HOME_DENY=['/Volumes','/Users','/private/tmp','/Library/LaunchDaem
 // the path in the chat.
 // Windows has no uid and no sandbox: a scoped agent is refused there (platform.cjs), a
 // full-access one keeps its temp folder under the system's.
-const uid=process.getuid?.()??0,fullAccess=access.full===true;
+const uid=platform.isWin?(process.getuid?.()??0):process.getuid(),fullAccess=access.full===true;
 if(platform.isWin&&!fullAccess){await bridge(config,'error',{message:platform.SCOPED_UNSUPPORTED}).catch(()=>{});process.exit(1);}
 // A bound agent (server/agentDirs.js) works in a repository an admin named, not in the folder
 // CC Agent makes: that repository's own CLAUDE.md, hooks and skills are its rules, and
@@ -100,7 +100,7 @@ const bound=config.bound===true,noGlobal=config.globalHarness===false;
 if(bound&&!fullAccess){await bridge(config,'error',{message:'限定範圍的 Agent 不能在工作資料夾（repository）裡工作，已拒絕啟動。'}).catch(()=>{});process.exit(1);}
 const tmpName=`${String(config.conversationId||'x').slice(0,8)}-g${config.generation||1}`;
 const tmpRoot=`/tmp/cca-${uid}`;
-const agentTmp=fullAccess?path.join(platform.tmpBase(),`cca-${tmpName}`):path.join(tmpRoot,tmpName);
+const agentTmp=fullAccess?(platform.isWin?path.join(platform.tmpBase(),`cca-${tmpName}`):`/tmp/cca-${tmpName}`):path.join(tmpRoot,tmpName);
 const sandboxTmp=path.join(agentTmp,`claude-${uid}`);
 const tmpProblem=(p,why)=>Object.assign(new Error(why),{tmpPath:p});
 // A folder of this account's, made if missing: never a link, a file or another's.
