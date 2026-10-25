@@ -48,13 +48,14 @@
    <!-- Offered only where the server allows it: an agent an admin owns. -->
    <!-- What full access means is a hint on the row, shown on hover. -->
    <f7-list v-if="allowFull" inset strong-ios class="agent-full" :title="ct('完整權限：這個 Agent 不受範圍限制，讀寫得到這台電腦上你的帳號能碰到的一切，包括金鑰和所有人的對話。只替需要的 Agent 打開。')">
-    <f7-list-item ><template #title>{{ct('完整權限')}}<small class="full-flag">（--dangerously-skip-permissions）</small></template><template #after><f7-toggle :checked="!!modelValue.access?.full" @toggle:change="setFull"/></template></f7-list-item>
+    <f7-list-item ><template #title>{{ct('完整權限')}}<small class="full-flag">（--dangerously-skip-permissions）</small></template><template #after><f7-toggle :checked="!!modelValue.access?.full" :disabled="scopedAgents===false&&!!modelValue.access?.full" @toggle:change="setFull"/></template></f7-list-item>
    </f7-list>
+   <f7-block-footer v-if="allowFull&&scopedAgents===false" class="workspace-note">{{t('serverFullAccessOnly')}}</f7-block-footer>
    <!-- Where a full-access agent works, and whether it also loads the owner's own Claude setup.
         Not in the scope-only editor, which saves the access scope alone. -->
    <template v-if="allowFull&&modelValue.access?.full&&!accessOnly">
     <f7-list inset strong-ios class="agent-workspace">
-     <f7-list-input :label="ct('工作資料夾')" :value="modelValue.workspace||''" @update:value="set('workspace',$event)" :placeholder="ct('留空：用 CC Agent 自己建的資料夾；或填 repo 的絕對路徑，例如 /Users/me/my-repo')" autocapitalize="off" autocorrect="off" spellcheck="false"/>
+     <f7-list-input :label="ct('工作資料夾')" type="textarea" :resizable="true" rows="2" :value="modelValue.workspace||''" @update:value="set('workspace',$event)" :placeholder="ct('留空：用 CC Agent 自己建的資料夾；或填 repo 的絕對路徑，例如 /Users/me/my-repo')" autocapitalize="off" autocorrect="off" spellcheck="false"/>
     </f7-list>
     <f7-block-footer class="workspace-note">{{ct('填了之後，這個 Agent 的 Claude 直接在那個 repo 裡工作，repo 自己的 CLAUDE.md、AGENTS.md、.claude/settings.json 的 hooks 與 skills 都會生效；CC Agent 不會在裡面寫任何檔。已經開始的對話改了資料夾會換成新的一代接續。')}}</f7-block-footer>
     <f7-list inset strong-ios class="agent-global-harness">
@@ -100,7 +101,8 @@
 </template>
 <script setup>
 import {computed,reactive,ref,watch} from 'vue';import {api} from '../js/api.js';import {ct} from '../js/agent-i18n.js';
-import {preferencesLoaded} from '../js/agentPreferences.js';
+import {preferencesLoaded,scopedAgents} from '../js/agentPreferences.js';
+import {t} from '../js/i18n.js';
 // What a folded field says about itself: how much is in it.
 const lengthLabel=text=>{const n=Array.from(String(text||'')).length;return n?n.toLocaleString()+' '+ct('字'):ct('未填');};
 import {models,efforts,modelLabel,effortLabel} from '../js/agent-models.js';
@@ -154,6 +156,7 @@ function pick(key,value){if(value!==props.modelValue[key])emit('engine-change',k
 .model-effort :deep(.item-input-wrap){flex:1 1 0;min-width:0;margin:0;}
 .model-effort :deep(select){height:var(--cc-size-control-md);text-align:right;text-align-last:right;color:var(--f7-list-item-after-text-color);}
 .full-flag{margin-left:4px;font-size:12px;opacity:.6;}
+.agent-workspace :deep(textarea){overflow-wrap:anywhere;}
 .fold-quiet:not(.accordion-item-opened) :deep(>.item-link .item-inner:before){opacity:0;}
 .fold-quiet:not(.accordion-item-opened) :deep(>.item-link .item-inner){padding-right:var(--f7-list-item-padding-horizontal);}
 </style>

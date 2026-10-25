@@ -17,39 +17,19 @@
               </div>
               <br />
               <div class="block subtitle">
-                Please add {{ PRODUCT.name }} to your home screen 📱
+                {{ t('installSubtitle', { product: PRODUCT.name }) }}
               </div>
             </div>
           </div>
           <div class="list inset no-hairlines-between cc-grouped">
             <ul>
-              <li>
+              <li v-for="step in steps[platform]" :key="step.text">
                 <div class="item-content">
                   <div class="item-media">
-                    <i style="font-size: 35px" class="f7-icons">compass</i>
+                    <i style="font-size: 35px" class="f7-icons">{{ step.icon }}</i>
                   </div>
-                  <div class="item-inner" style="text-align: start;">
-                    Open this page in Safari
-                  </div>
-                </div>
-              </li>
-              <li>
-                <div class="item-content">
-                  <div class="item-media">
-                    <i style="font-size: 35px" class="f7-icons">square_arrow_up</i>
-                  </div>
-                  <div class="item-inner" style="text-align: start;">
-                    Click the "Share" button
-                  </div>
-                </div>
-              </li>
-              <li>
-                <div class="item-content">
-                  <div class="item-media">
-                    <i style="font-size: 35px" class="f7-icons">plus_app</i>
-                  </div>
-                  <div class="item-inner" style="text-align: start;">
-                    and choose "Add to Home Screen"
+                  <div class="item-inner" style="text-align: start; white-space: normal;">
+                    {{ t(step.text) }}
                   </div>
                 </div>
               </li>
@@ -63,7 +43,7 @@
               id="use-in-browser-button"
               @click="$emit('use-in-browser')"
             >
-              Use in browser
+              {{ t('installUseBrowser') }}
             </button>
           </center>
         </center>
@@ -75,9 +55,28 @@
 <script setup>
 import { ref } from 'vue';
 import { PRODUCT } from '../js/productConfig.js';
+import { t } from '../js/i18n.js';
 
 const emit = defineEmits(['use-in-browser', 'dev-mode']);
-
+const ua = navigator.userAgent;
+const platform = /iPad|iPhone|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  ? 'ios' : /Android/i.test(ua) ? 'android' : 'other';
+const steps = {
+  ios: [
+    { icon: 'compass', text: 'installIosBrowser' },
+    { icon: 'square_arrow_up', text: 'installIosShare' },
+    { icon: 'plus_app', text: 'installIosAdd' },
+  ],
+  android: [
+    { icon: 'globe', text: 'installAndroidBrowser' },
+    { icon: 'ellipsis_vertical', text: 'installAndroidMenu' },
+    { icon: 'plus_app', text: 'installAndroidAdd' },
+  ],
+  other: [
+    { icon: 'globe', text: 'installOtherBrowser' },
+    { icon: 'plus_app', text: 'installOtherAdd' },
+  ],
+};
 
 // Easter egg: tapping the install title 10 times enables dev_mode and bypasses to main.
 const taps = ref(0);

@@ -9,7 +9,8 @@ function normalizeLang(l) {
   return SUPPORTED_LANGS.includes(l) ? l : 'en';
 }
 
-export const lang = ref(normalizeLang(localStorage.getItem(PRODUCT.storageKeys.language) || 'en'));
+const savedLang = localStorage.getItem(PRODUCT.storageKeys.language);
+export const lang = ref(normalizeLang(savedLang === null ? (/^zh/i.test(navigator.language) ? 'zh-TW' : 'en') : savedLang));
 // Dates and times follow the app's language: 10:04 AM in English, 上午 10:04 in Chinese.
 export const timeLocale = () => (lang.value === 'en' ? 'en-US' : 'zh-TW');
 
@@ -21,6 +22,19 @@ export function setLang(l, { persist = true } = {}) {
 
 const dict = {
   en: {
+    // ux-onboard
+    installSubtitle: 'Please add {product} to your home screen',
+    installUseBrowser: 'Use in browser',
+    installIosBrowser: 'Open this page in Safari',
+    installIosShare: 'Tap the Share button',
+    installIosAdd: 'Choose “Add to Home Screen”',
+    installAndroidBrowser: 'Open this page in Chrome',
+    installAndroidMenu: 'Open the ⋮ menu',
+    installAndroidAdd: 'Choose “Install app” or “Add to Home screen”',
+    installOtherBrowser: 'Open your browser’s menu',
+    installOtherAdd: 'Choose “Install app” or “Add to Home screen” if available, or continue in your browser.',
+    serverFullAccessOnly: 'This server (Windows) only supports full access.',
+    // /ux-onboard
     back: '← Back',
     tabChat: 'Agents',
     tabGroups: 'Groups',
@@ -122,6 +136,19 @@ const dict = {
     tooManyAttempts: 'Too many attempts. Please try again later.',
   },
   'zh-TW': {
+    // ux-onboard
+    installSubtitle: '請將 {product} 加到主畫面',
+    installUseBrowser: '在瀏覽器中使用',
+    installIosBrowser: '使用 Safari 開啟這個頁面',
+    installIosShare: '點選「分享」按鈕',
+    installIosAdd: '選擇「加入主畫面」',
+    installAndroidBrowser: '使用 Chrome 開啟這個頁面',
+    installAndroidMenu: '開啟右上角的 ⋮ 選單',
+    installAndroidAdd: '選擇「安裝應用程式」或「加到主畫面」',
+    installOtherBrowser: '開啟瀏覽器的選單',
+    installOtherAdd: '若有「安裝應用程式」或「加到主畫面」，請選擇該項目；也可以繼續在瀏覽器中使用。',
+    serverFullAccessOnly: '這台伺服器（Windows）只支援完整權限。',
+    // /ux-onboard
     back: '← 上一步',
     tabChat: 'Agents',
     tabGroups: '群組',
