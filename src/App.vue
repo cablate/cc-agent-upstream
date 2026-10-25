@@ -462,7 +462,7 @@ const f7params = {
 <style scoped>
 .direct-cover {position:absolute;inset:0;z-index:6000;display:flex;align-items:center;justify-content:center;background:var(--cc-color-page,#121212);}
 .panel-foot {position:absolute;left:0;right:0;bottom:calc(16px + var(--f7-safe-area-bottom, 0px));}
-@media(min-width:1024px){.panel-layout{display:flex;flex-direction:column;height:100%;overflow:hidden;}.panel-layout > .panel-logo,.panel-layout > .menu-list{flex-shrink:0;}.panel-layout > .panel-logo{padding-top:24px!important;}.panel-layout > .menu-list{margin-top:20px;margin-bottom:16px;}.panel-layout > .panel-foot{position:static;flex-shrink:0;padding-bottom:calc(16px + var(--f7-safe-area-bottom, 0px));}}
+@media(min-width:1024px){.panel-layout{display:flex;flex-direction:column;height:100%;overflow:hidden;}.panel-layout > .panel-logo,.panel-layout > .menu-list{flex-shrink:0;}.panel-layout > .panel-logo{padding-top:24px!important;}.panel-layout > .menu-list{margin-top:20px;margin-bottom:16px;}.panel-layout > .panel-foot{position:static;flex-shrink:0;padding-top:10px;border-top:1px solid color-mix(in srgb,currentColor 12%,transparent);padding-bottom:calc(16px + var(--f7-safe-area-bottom, 0px));}}
 @media(min-width:1024px) and (max-height:620px){.panel-layout > .panel-logo{display:none;}.panel-layout > .menu-list{margin-top:8px;margin-bottom:8px;flex-shrink:1;min-height:0;overflow:auto;}}
 .panel-update {margin:0;}
 /* The Agents tab's unread count: beside the title on a computer,

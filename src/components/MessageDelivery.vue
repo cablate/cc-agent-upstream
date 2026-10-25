@@ -5,7 +5,8 @@
 import {computed} from 'vue';
 import {t} from '../js/i18n.js';
 const props=defineProps({message:{type:Object,required:true}});
-const labels={queued:'uxChatQueued',delivered:'uxChatDelivered',completed:'uxChatReplied',interrupted:'uxChatInterrupted',unanswered:'uxChatUnanswered'};
+// A replied message needs no label: only states still waiting or gone wrong show.
+const labels={queued:'uxChatQueued',delivered:'uxChatDelivered',interrupted:'uxChatInterrupted',unanswered:'uxChatUnanswered'};
 const label=computed(()=>props.message.role==='user'&&!props.message.imported&&!props.message.schedule&&!props.message.limitResume&&!props.message.wrapUp&&!props.message.speaker?labels[props.message.delivery]:null);
 </script>
 <style scoped>
