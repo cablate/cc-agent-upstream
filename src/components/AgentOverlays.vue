@@ -47,6 +47,9 @@ import ChecklistPanel,{askNewChecklist} from "./ChecklistPanel.vue";
 import {inject,computed,ref,watch,onBeforeUnmount} from "vue";import {f7} from "framework7-vue";import GlassDropdown from "./GlassDropdown.vue";import {parseAgentJson} from "../js/agentImport.js";import {ct} from "../js/agent-i18n.js";
 export default {components:{GlassDropdown,AgentProfileFields,AgentProfilePanel,MessageSearchResults,ChecklistPanel},setup(){const w=inject("workspace");
  const personal=computed(()=>w.user.value?.role==="admin");
+ // A server that cannot fence an agent (Windows: Claude Code has no sandbox there, see
+ // channel/platform.cjs) would refuse a scoped one at its first start. An admin's new agent
+ // starts with full access instead, and the form says why; nothing changes elsewhere.
  watch([()=>w.newOpen.value,scopedAgents],([open,scoped])=>{if(open&&personal.value&&scoped===false&&!w.newProfile.value.access?.full)w.newProfile.value={...w.newProfile.value,access:{...w.newProfile.value.access,full:true}};});
  const importText=ref(""),importNote=ref(""),importDone=ref(false),importRow=ref(null);
  // Each opening of the sheet starts the import empty.
