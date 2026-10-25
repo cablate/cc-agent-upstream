@@ -334,7 +334,7 @@ if(ownerConfig){
 // A full-access agent keeps the owner's git identity; a scoped one cannot read it.
 const env={...agentEnv(),TMPDIR:agentTmp+'/',CLAUDE_CODE_TMPDIR:agentTmp,...(platform.isWin?{TEMP:agentTmp,TMP:agentTmp}:{}),...(full?{}:{GIT_CONFIG_GLOBAL:gitConfig,TMPPREFIX:path.join(sandboxTmp,'zsh')}),...(ownerConfig?{DISCORD_STATE_DIR:noDiscord}:{}),...(noConnectors?{ENABLE_CLAUDEAI_MCP_SERVERS:'false'}:{})};
 
-const transcript=path.join(homeDir,'.claude','projects',config.cwd.replace(/[^a-zA-Z0-9]/g,'-'),config.sessionId+'.jsonl');
+const transcript=path.join(platform.isWin?homeDir:env.HOME,'.claude','projects',config.cwd.replace(/[^a-zA-Z0-9]/g,'-'),config.sessionId+'.jsonl');
 const resumed=config.resume||fs.existsSync(transcript)||fs.existsSync(path.join(controlDir,'started.marker'));
 // The last two sentences are load-bearing. A session's first ToolSearch can come
 // back without the executive tools, and the session then announces the server is
