@@ -1,6 +1,7 @@
 <template>
- <f7-page @page:afterin="onChatsIn" name="chats" class="page-large-static">
+ <f7-page @page:afterin="onChatsIn();attentionVisible=true" @page:beforeout="attentionVisible=false" name="chats" class="page-large-static">
   <f7-navbar large class="navbar-transparent no-hairline navbar-glass-blur"><f7-nav-left><f7-link :disabled="orderBusy" :aria-label="ct('編輯 Agent 清單')" @click="toggleEdit">{{editMode?'Done':'Edit'}}</f7-link><template v-if="editMode&&user?.role==='admin'"><f7-link icon-only icon-f7="pause_circle" class="bulk-agents" :class="{disabled:!!bulkBusy}" :aria-label="ct(chosenList.length?'暫停選取的 Agent':'全部暫停')" :title="ct(chosenList.length?'暫停選取的 Agent':'全部暫停')" @click="!bulkBusy&&pauseEveryAgent()"/><f7-link icon-only icon-f7="play_circle" class="bulk-agents" :class="{disabled:!!bulkBusy}" :aria-label="ct(chosenList.length?'啟動選取的 Agent':'全部啟動')" :title="ct(chosenList.length?'啟動選取的 Agent':'全部啟動')" @click="!bulkBusy&&startEveryAgent()"/><f7-link icon-only icon-f7="arrow_clockwise_circle" class="bulk-agents" :class="{disabled:!!bulkBusy}" :aria-label="ct(chosenList.length?'重啟選取的 Agent':'全部重啟')" :title="ct(chosenList.length?'重啟選取的 Agent':'全部重啟')" @click="!bulkBusy&&restartEveryAgent()"/><span v-if="chosenList.length" class="bulk-count" role="status">{{ct('已選')}} {{chosenList.length}}</span></template></f7-nav-left><f7-nav-title sliding>Agents</f7-nav-title><f7-nav-right><f7-link v-if="user?.role==='admin'&&wideScreen" icon-only icon-f7="square_grid_2x2" class="split-open external" href="/?split=1" :aria-label="ct('分割畫面')"/><f7-link v-if="user?.role==='admin'" icon-only icon-f7="trash" class="deleted-open" :aria-label="ct('已刪除的 Agent')" :title="ct('已刪除的 Agent')" @click="openDeleted"/><f7-link v-if="user?.role==='admin'" icon-only icon-f7="plus" :aria-label="ct('新增 agent')" @click="openNewChat"/></f7-nav-right><f7-nav-title-large>Agents</f7-nav-title-large></f7-navbar>
+  <AttentionPanel :visible="attentionVisible"/>
   <!-- The search row: the search pill, and
        beside it a round source button. Each source is one way of starting agents,
        with its own list; nothing mixes them. -->
@@ -45,15 +46,15 @@
      <!-- Folded, its agents' names as small tags:
           one working spins, and a tap opens that agent. -->
      <div v-if="row.collapsed&&!editMode" class="agent-group-tags">
-      <button v-for="a in row.members" :key="a.id" type="button" class="agent-group-tag" :class="{thinking:thinking(a)}" :data-id="a.id" @click="select(a.id)"><f7-preloader v-if="thinking(a)" class="agent-group-busy" :size="10"/><span v-else class="tag-dot" :class="{online:a.connected&&!activity(a),working:!!activity(a)}" role="img" :aria-label="ct(presenceLabel(a))" :title="ct(presenceLabel(a))"></span>{{a.title}}</button>
+      <button v-for="a in row.members" :key="a.id" type="button" class="agent-group-tag" :class="{thinking:thinking(a)}" :data-id="a.id" @click="select(a.id)"><f7-preloader v-if="thinking(a)" class="agent-group-busy" :size="10"/><span v-else class="tag-dot" :class="status(a)" role="img" :aria-label="presenceLabel(a)" :title="presenceLabel(a)"></span>{{a.title}}</button>
      </div>
      <div v-if="editMode&&!mixedList" class="sortable-handler agent-group-handle" :aria-label="ct('拖曳整個群組')" @touchstart.stop @mousedown.stop @pointerdown.stop="startGroupDrag($event,moveGroups)"/>
     </li>
     <li v-else-if="row.kind==='slot'" class="agent-group-slot in-group group-end" :data-group="row.group"><p class="agent-group-empty">{{ct('把 Agent 拖到這裡')}}</p></li>
-   <f7-list-item v-else :swipeout="!editMode" :class="{'row-opening':openingId===row.agent.id,'in-source':listSource==='all','disallow-sorting':autoSort,'in-group':editMode&&!!row.group,'group-end':editMode&&!!row.group&&row.last,'waiting-choice':!!waitingChoice(row.agent)}" :data-id="row.agent.id" :link="editMode?false:'#'" :title="editMode&&user?.role==='admin'?undefined:row.agent.title" :text="waitingChoice(row.agent)||row.agent.preview||ct('尚無對話')" :badge="editMode?null:unreadLabel(unreadOf(row.agent))" badge-color="red" @click.prevent="!editMode&&!justSwiped($event)&&select(row.agent.id)" @swipeout="swiped" @contextmenu.prevent="user?.role==='admin'&&conversationMenu(row.agent,$event)" @keydown.shift.f10.prevent="user?.role==='admin'&&conversationMenu(row.agent,$event)">
+   <f7-list-item v-else :swipeout="!editMode" :class="{'row-opening':openingId===row.agent.id,'in-source':listSource==='all','disallow-sorting':autoSort,'in-group':editMode&&!!row.group,'group-end':editMode&&!!row.group&&row.last,'waiting-choice':status(row.agent)==='waiting','agent-error':status(row.agent)==='error'}" :data-id="row.agent.id" :link="editMode?false:'#'" :title="editMode&&user?.role==='admin'?undefined:row.agent.title" :text="agentListPreview(row.agent)||waitingChoice(row.agent)||row.agent.preview||ct('尚無對話')" :badge="editMode?null:unreadLabel(unreadOf(row.agent))" badge-color="red" @click.prevent="!editMode&&!justSwiped($event)&&select(row.agent.id)" @swipeout="swiped" @contextmenu.prevent="user?.role==='admin'&&conversationMenu(row.agent,$event)" @keydown.shift.f10.prevent="user?.role==='admin'&&conversationMenu(row.agent,$event)">
     <!-- Agents are an admin's to create, rename and delete; a member only reorders. -->
     <template v-if="editMode&&user?.role==='admin'" #content-start><f7-button class="agent-select" :icon-f7="isChosen(row.agent.id)?'checkmark_circle_fill':'circle'" role="checkbox" :aria-checked="String(isChosen(row.agent.id))" :aria-label="ct('選取')+' '+row.agent.title" @click.stop="toggleChosen(row.agent.id)"/><f7-button class="agent-delete" color="red" icon-f7="minus_circle_fill" :aria-label="ct('刪除')+' '+row.agent.title" @click.stop="deleteConversation(row.agent)"/></template>
-    <template #media><div class="agent-avatar"><img v-if="row.agent.avatar" :src="row.agent.avatar" :class="'agent-avatar-'+avatarShape(row.agent.avatar)" alt="" width="45" height="45"/><img v-else :src="defaultAvatar(row.agent)" class="agent-avatar-icon" alt=""/><span class="presence-dot" :class="{online:row.agent.connected&&!activity(row.agent),working:!!activity(row.agent),thinking:thinking(row.agent)}" role="img" :aria-label="ct(presenceLabel(row.agent))" :title="ct(presenceLabel(row.agent))"><f7-preloader v-if="thinking(row.agent)" :size="14"/></span></div></template>
+    <template #media><div class="agent-avatar"><img v-if="row.agent.avatar" :src="row.agent.avatar" :class="'agent-avatar-'+avatarShape(row.agent.avatar)" alt="" width="45" height="45"/><img v-else :src="defaultAvatar(row.agent)" class="agent-avatar-icon" alt=""/><span class="presence-dot" :class="[status(row.agent),{thinking:thinking(row.agent)}]" role="img" :aria-label="presenceLabel(row.agent)" :title="presenceLabel(row.agent)"><f7-preloader v-if="thinking(row.agent)" :size="14"/></span></div></template>
     <!-- Swiped left outside Edit mode, a row offers round buttons: pause or start,
          whichever its state calls for, and, for an admin, delete. -->
     <f7-swipeout-actions v-if="!editMode" right class="agent-swipe">
@@ -72,13 +73,16 @@
 
 </template>
 <script>
-import {inject,ref,computed} from "vue";import GlassDropdown from "../components/GlassDropdown.vue";import {f7} from "framework7-vue";import TerminalPane from "../TerminalPane.vue";import MessageSearchResults from "../components/MessageSearchResults.vue";import {startGroupDrag} from "../js/groupDrag.js";import {avatarShape,defaultAvatar} from "../js/avatarShape.js";export default {components:{TerminalPane,MessageSearchResults,GlassDropdown},directives:{focus:{mounted:el=>{el.focus();el.select?.();}}},setup(){const w=inject("workspace");
+import AttentionPanel from '../components/AttentionPanel.vue';import {t} from '../js/i18n.js';import {agentListStatus,agentListPreview} from '../js/agent-list-status.js';
+import {inject,ref,computed} from "vue";import GlassDropdown from "../components/GlassDropdown.vue";import {f7} from "framework7-vue";import TerminalPane from "../TerminalPane.vue";import MessageSearchResults from "../components/MessageSearchResults.vue";import {startGroupDrag} from "../js/groupDrag.js";import {avatarShape,defaultAvatar} from "../js/avatarShape.js";export default {components:{TerminalPane,MessageSearchResults,GlassDropdown,AttentionPanel},directives:{focus:{mounted:el=>{el.focus();el.select?.();}}},setup(){const w=inject("workspace");
  // While an agent is answering, its light turns into a small spinner, on this list
  // only: the conversation has its typing bubble.
  // Work left running in the background (a subagent, a command) spins too, after
  // the turn that started it has ended.
- const thinking=c=>!!c.connected&&(c.phase==='busy'||c.background>0)&&!w.activity(c);
- const presenceLabel=c=>w.activity(c)?'Agent 正在處理':thinking(c)?(c.phase==='busy'?'Agent 思考中':'Agent 背景工作中'):c.connected?'Agent 在線':'Agent 離線';
+ const status=c=>agentListStatus(c,w.activity(c));
+ const thinking=c=>status(c)==='busy';
+ const presenceLabel=c=>t('navStatus_'+status(c));
+ const attentionVisible=ref(false);
  // Deleted agents, restored or kept from their own page.
  const openDeleted=()=>f7.views.get('#view-chat')?.router.navigate('/deleted-agents/');
  // A swipe's buttons act on that row's agent and keep the tap from opening it.
@@ -101,7 +105,7 @@ import {inject,ref,computed} from "vue";import GlassDropdown from "../components
  // message, so the list says who waits on the owner.
  // Only an admin answers such menus (ConversationPage's TerminalPromptCard).
  const waitingChoice=c=>{const p=c.terminalPrompt;if(!p||w.user.value?.role!=='admin')return '';const what=(p.title||'').replace(/^[☐☒✔\s]+/,'').trim()||p.body?.split('\n')[0]?.trim()||p.options?.[0]?.label||'';return w.ct('終端機在等你選擇')+(what?'：'+what:'');};
- return {...w,waitingChoice,sourcesOpen,sourcesPoint,openSources,sourceIcon,sourceLabel,thinking,presenceLabel,startGroupDrag,avatarShape,defaultAvatar,openDeleted,isStopped,swipePause,swipeStart,swipeDelete,swiped,justSwiped};}};
+ return {...w,status,agentListPreview,attentionVisible,waitingChoice,sourcesOpen,sourcesPoint,openSources,sourceIcon,sourceLabel,thinking,presenceLabel,startGroupDrag,avatarShape,defaultAvatar,openDeleted,isStopped,swipePause,swipeStart,swipeDelete,swiped,justSwiped};}};
 </script>
 
 <style scoped>
@@ -161,7 +165,7 @@ import {inject,ref,computed} from "vue";import GlassDropdown from "../components
 .agent-group-name {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .agent-group-fold {display:flex;align-items:center;gap:8px;flex:1;min-width:0;width:auto;margin:0;padding:0;border:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;}
 .agent-group-count {flex:0 0 auto;font-size:13px;font-weight:500;color:var(--cc-color-text-secondary);}
-.agent-group-busy {flex:0 0 auto;--f7-preloader-color:#34c759;}
+.agent-group-busy {flex:0 0 auto;--f7-preloader-color:#5ac8fa;}
 .agent-group-tags {display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
 .agent-group-tag {display:inline-flex;align-items:center;gap:5px;width:auto;max-width:100%;margin:0;padding:3px 10px;border:0;border-radius:11px;background:color-mix(in srgb,currentColor 12%,transparent);color:var(--cc-color-text-secondary);font:inherit;font-size:12px;font-weight:500;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
 /* The tapped agent while its conversation loads: the tap took, it is on its way
@@ -173,7 +177,10 @@ import {inject,ref,computed} from "vue";import GlassDropdown from "../components
 @keyframes row-opening {to {transform:rotate(360deg);}}
 .tag-dot {flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:#8e8e93;}
 .tag-dot.online {background:#34c759;}
-.tag-dot.working {background:#ff9500;}
+.tag-dot.busy {background:#5ac8fa;}
+.tag-dot.error,.presence-dot.error {background:#ff453a;}
+.tag-dot.waiting,.presence-dot.waiting {background:#ff9f0a;}
+.conversation-list :deep(li.agent-error .item-text) {color:#ff453a;}
 .agent-group-tag.thinking {color:#34c759;background:rgba(52,199,89,.14);}
 .agent-group-chevron {flex:0 0 auto;margin-left:auto;font-size:14px;color:var(--cc-color-text-secondary);transition:transform .2s ease;}
 .agent-group-chevron.collapsed {transform:rotate(-90deg);}
@@ -241,6 +248,6 @@ import {inject,ref,computed} from "vue";import GlassDropdown from "../components
 .presence-dot.online {
   background: #34c759; /* green = agent Channel heartbeat and ready */
 }
-.presence-dot.working {background:#ff9500;}
-.presence-dot.thinking {display:flex;align-items:center;justify-content:center;width:20px;height:20px;right:-6px;bottom:-6px;box-shadow:none;background:var(--cc-color-page,#121212);--f7-preloader-color:#34c759;}
+.presence-dot.busy {background:#5ac8fa;}
+.presence-dot.thinking {display:flex;align-items:center;justify-content:center;width:20px;height:20px;right:-6px;bottom:-6px;box-shadow:none;background:var(--cc-color-page,#121212);--f7-preloader-color:#5ac8fa;}
 </style>
