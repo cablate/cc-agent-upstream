@@ -26,10 +26,10 @@
    <div v-else-if="!failed" class="split-loading"><f7-preloader/></div>
   </div></div>
   <input ref="fileInput" type="file" multiple hidden @change="pickFiles"/>
-  <div ref="composer" class="split-composer" :inert="locked">
+  <div ref="composer" class="split-composer" :inert="locked&&!startEditable">
    <ChatComposer :sending="sending" v-if="detail" :highlights="mention.current.value.map(m=>'@'+m.title)" :editor-id="null" v-model:value="draft" :placeholder="ct('輸入訊息…')" @keydown="composerKeydown">
     <template #inner-start><f7-link icon-only icon-f7="plus" class="split-attach" :aria-label="ct('加入附件')" :class="{disabled:sending}" @click="chooseFiles"/></template>
-    <template #before-inner><div v-if="files.length" class="split-drafts" :aria-label="ct('附件')">
+    <template #before-inner><AgentStart :detail="detail" :action="action" :starting="startInProgress" :error="operationError"/><div v-if="files.length" class="split-drafts" :aria-label="ct('附件')">
      <f7-preloader v-if="sending" :size="18"/>
      <div v-for="file in files" :key="file.key" class="split-draft">
       <a href="#" :title="file.name" @click.prevent="preview={name:file.name,size:file.size,local:file.file}"><span>{{file.name}}</span><small>{{file.size<1024?file.size+' B':(file.size/1024).toFixed(1)+' KB'}}</small></a>
@@ -44,7 +44,7 @@
   <f7-link v-if="detail&&!atBottom&&!locked" class="split-to-latest" icon-only icon-f7="chevron_down" :aria-label="ct('回到最新')" @click="toLatest"/>
   <!-- The shield covers the conversation only, as on the conversation page: the
        terminal and the side column stay usable while the agent starts or compacts. -->
-  <div v-if="detail&&locked" class="split-operation" role="status" aria-live="polite" aria-busy="true">
+  <div v-if="detail&&locked&&!startEditable" class="split-operation" role="status" aria-live="polite" aria-busy="true">
    <div class="split-operation-card">
     <b>{{operationTitle}}</b>
     <p v-for="step in operationSteps" :key="step">{{step}}</p>
@@ -86,6 +86,9 @@ import MessageList from './MessageList.vue';
 import TerminalPromptCard from './TerminalPromptCard.vue';
 import TerminalPane from '../TerminalPane.vue';
 import AttachmentPreview from './AttachmentPreview.vue';
+import AgentStart from './AgentStart.vue';
+import {canStartAgent} from '../js/agentStart.js';
+import {uxFeatures} from '../js/agentPreferences.js';
 import ChatComposer from './ChatComposer.vue';
 import SlashMenu from './SlashMenu.vue';
 import MentionMenu from './MentionMenu.vue';
@@ -145,6 +148,8 @@ const agent=useCellAgent({workspace,conversationId:computed(()=>props.conversati
 provide('workspace',agent.cell);
 const {locked,action,operationTitle,operationSteps,operationPercent}=agent;
 const cellError=agent.error,operationError=agent.operationError;
+const startInProgress=computed(()=>detail.value?.phase==='starting'||agent.operationKind.value==='start');
+const startEditable=computed(()=>uxFeatures.value.mobilePause&&!['rotate','compact'].includes(agent.activity.value)&&(canStartAgent(detail.value)||startInProgress.value));
 // The light by the agent's name above the cell, as in the conversation's navbar.
 const presence=computed(()=>{const d=detail.value;if(!d)return 'offline';return agent.activity.value?'working':d.connected?'online':'offline';});
 watch(presence,p=>emit('presence',p),{immediate:true});

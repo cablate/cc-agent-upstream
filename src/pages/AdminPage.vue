@@ -29,6 +29,7 @@
       <f7-list-item link class="security-row" :title="ct('登入防禦')" @click.prevent="goSecurity"><template #media><f7-icon f7="shield_lefthalf_fill"/></template></f7-list-item>
       <f7-list-item link :title="ct('範圍報告單')" :badge="openReports||null" badge-color="orange" @click.prevent="goReports"><template #media><f7-icon f7="lock_shield"/></template></f7-list-item>
       <f7-list-item :title="ct('聊天室終端機切換')"><template #media><f7-icon f7="chevron_left_slash_chevron_right"/></template><template #after><label class="toggle"><input type="checkbox" :aria-label="ct('聊天室終端機切換')" :checked="terminalSwitch" @change="saveTerminalSwitch($event.target.checked)"/><span class="toggle-icon"></span></label></template></f7-list-item>
+      <f7-list-item v-if="terminalSwitch" link no-chevron class="terminal-first" :title="t('uxTerminalFirst')" :after="t(terminalFirst?'uxTerminal':'uxChat')" @click.prevent="openDropdown('terminalFirst',$event)"><template #media><f7-icon f7="rectangle_on_rectangle"/></template></f7-list-item>
       <f7-list-item class="transcript-switch" :title="ct('Transcript 檢視')"><template #media><f7-icon f7="ant" class="ant-icon"/></template><template #after><label class="toggle"><input type="checkbox" :aria-label="ct('顯示 Transcript 檢視按鈕')" :checked="transcriptSwitch" @change="saveTranscriptSwitch($event.target.checked)"/><span class="toggle-icon"></span></label></template></f7-list-item>
     </f7-list>
 
@@ -62,7 +63,7 @@ import GlassDropdown from '../components/GlassDropdown.vue';
 import UsageMeters from '../components/UsageMeters.vue';
 async function pullRefresh(done) { try { await Promise.all([loadUsage({fresh: true}), loadOpenReports(), loadAgentPreferences().catch(() => {})]); } finally { done(); } }
 import { usageGroups, watchUsage, loadUsage } from '../js/usage.js';
-import {wrapUp,archiveRetentionDays,compactThreshold,terminalSwitch,transcriptSwitch,terminalPromptReminder,loadAgentPreferences,saveAgentPreferences} from '../js/agentPreferences.js';
+import {wrapUp,archiveRetentionDays,compactThreshold,terminalSwitch,terminalFirst,transcriptSwitch,terminalPromptReminder,loadAgentPreferences,saveAgentPreferences} from '../js/agentPreferences.js';
 
 const isAdmin = computed(() => currentUser.value?.role === 'admin');
 const toast = (text) => f7.toast.create({ text, closeTimeout: 1800 }).open();
@@ -121,11 +122,13 @@ const dropdownOpen = ref(false);
 const dropdownPoint = ref({ clientX: 0, clientY: 0 });
 const dropdownKind = ref('compact');
 const dropdownItems = computed(() => {
+  if(dropdownKind.value==='terminalFirst')return [{value:'chat',label:t('uxChat')},{value:'terminal',label:t('uxTerminal')}];
   if(dropdownKind.value==='wrapUp')return [...new Set([...WRAP_UP_MINUTES,wrapUp.value.minutes])].sort((a,b)=>a-b).map(n=>({value:String(n),label:n+' '+ct('分鐘')}));
   if(dropdownKind.value==='retention')return [{value:'never',label:retentionLabel(null)},...RETENTION_CHOICES.map(d=>({value:String(d),label:retentionLabel(d)}))];
   return [...Array.from({length:10},(_,i)=>({value:String(i+1),label:compactCount(i+1)})),{value:'0',label:compactPolicy(0)}];
 });
 const dropdownSelected = computed(() => {
+  if(dropdownKind.value==='terminalFirst')return terminalFirst.value?'terminal':'chat';
   if(dropdownKind.value==='wrapUp')return String(wrapUp.value.minutes);
   if(dropdownKind.value==='retention')return archiveRetentionDays.value===null?'never':String(archiveRetentionDays.value);
   return String(compactThreshold.value);
@@ -157,6 +160,7 @@ async function saveRetention(value){
 }
 async function onDropdownSelect(value) {
   if(!isAdmin.value)return;
+  if(dropdownKind.value==='terminalFirst'){try{await saveAgentPreferences({terminalFirst:value==='terminal'});toast(t('settingsSaved'));}catch(e){f7.dialog.alert(e.message);}return;}
   if(dropdownKind.value==='wrapUp'){await saveWrapUp({minutes:Number(value)});return;}
   if(dropdownKind.value==='retention'){await saveRetention(value);return;}
   try{await saveAgentPreferences({compactThreshold:Number(value)});toast(t('settingsSaved'));}catch(e){f7.dialog.alert(e.message);}

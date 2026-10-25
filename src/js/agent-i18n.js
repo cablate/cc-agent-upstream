@@ -1,6 +1,8 @@
 import {lang} from './i18n.js';
 import {PRODUCT} from './productConfig.js';
 const english = {
+"暫停 Agent":"Pause agent",
+"暫停會停下整個 Agent，聊天紀錄與 session 都會保留。之後要按「啟動」才會接回；只想停這一輪請用停止鈕或 Esc。":"Pause stops the whole agent and keeps the chat history and session. Press Start to reconnect later; use the stop button or Esc to stop only this turn.",
 "這些 Agent 沒有停下來，請手動停止：":"These agents did not stop. Stop them by hand:",
 "無法確認這個帳號的 Agent 都已停止，請檢查並手動停止。":"Could not confirm that this account's agents all stopped. Check them and stop them by hand.",
 "Agent 沒有全部停止":"Not every agent stopped",

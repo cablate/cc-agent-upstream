@@ -6,6 +6,7 @@ import {api} from './api.js';
 
 export const compactThreshold = ref(5);
 export const terminalSwitch = ref(false);
+export const terminalFirst = ref(false);
 // The Transcript column's button; off until an admin switches it on.
 export const transcriptSwitch = ref(false);
 export const terminalPromptReminder = ref(false);
@@ -21,6 +22,7 @@ function absorb(preferences) {
   if (!preferences || typeof preferences !== 'object') return preferences;
   if (Number.isInteger(preferences.compactThreshold)) compactThreshold.value = preferences.compactThreshold;
   terminalSwitch.value = preferences.terminalSwitch === true;
+  terminalFirst.value = preferences.terminalFirst === true;
   transcriptSwitch.value = preferences.transcriptSwitch === true;
   terminalPromptReminder.value = preferences.terminalPromptReminder === true;
   if (preferences.wrapUp && typeof preferences.wrapUp === 'object') wrapUp.value = preferences.wrapUp;
@@ -45,8 +47,10 @@ export const uxFeatureKeys = ["desktopRail","attentionPanel","statusColors","mes
 export const uxFeatures = ref(Object.fromEntries(uxFeatureKeys.map(key=>[key,false])));
 export const autoSort = ref(false);
 export const listGroups = ref([]);
+export const railPins = ref([]);
 export function absorbList(preferences) {
   autoSort.value = preferences?.autoSort === true;
+  railPins.value = Array.isArray(preferences?.railPins) ? preferences.railPins : [];
   uxFeatures.value = Object.fromEntries(uxFeatureKeys.map(key=>[key,preferences?.uxFeatures?.[key]===true]));
   listGroups.value = Array.isArray(preferences?.groups) ? preferences.groups : [];
   return preferences;

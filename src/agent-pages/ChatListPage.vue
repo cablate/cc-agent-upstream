@@ -59,7 +59,7 @@
          whichever its state calls for, and, for an admin, delete. -->
     <f7-swipeout-actions v-if="!editMode" right class="agent-swipe">
      <f7-swipeout-button v-if="isStopped(row.agent)" close class="swipe-round start" :aria-label="ct('啟動')+' '+row.agent.title" @click="swipeStart($event,row.agent)"><span class="swipe-circle"><i class="icon f7-icons">play_fill</i></span></f7-swipeout-button>
-     <f7-swipeout-button v-else close class="swipe-round pause" :aria-label="ct('暫停')+' '+row.agent.title" @click="swipePause($event,row.agent)"><span class="swipe-circle"><i class="icon f7-icons">pause_fill</i></span></f7-swipeout-button>
+     <f7-swipeout-button v-else close class="swipe-round pause" :aria-label="ct(uxFeatures.mobilePause?'暫停 Agent':'暫停')+' '+row.agent.title" @click="swipePause($event,row.agent)"><span class="swipe-circle"><i class="icon f7-icons">pause_fill</i></span></f7-swipeout-button>
      <f7-swipeout-button v-if="user?.role==='admin'" close class="swipe-round delete" :aria-label="ct('刪除')+' '+row.agent.title" @click="swipeDelete($event,row.agent)"><span class="swipe-circle"><i class="icon f7-icons">trash_fill</i></span></f7-swipeout-button>
     </f7-swipeout-actions>
     <template v-if="editMode&&user?.role==='admin'" #title><f7-link class="agent-rename" :aria-label="ct('重新命名')+' '+row.agent.title" @click.stop="renameConversation(row.agent)">{{row.agent.title}}</f7-link></template>
