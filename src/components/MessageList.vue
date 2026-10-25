@@ -265,6 +265,8 @@ function onMarkdownClick(event){
 :global(html.dark) .message-list :deep(.message-received .message-markdown a) {color:#58a6ff;}
 .message-markdown :deep(.md-scroll) {max-width:100%;overflow-x:auto;margin:0 0 .7em;}
 .reading-enhanced .message-markdown :deep(pre) {white-space:pre;overflow-wrap:normal;overflow-x:auto;}
+/* Unwrapped lines run under the copy button, so it gets a solid backing. */
+.reading-enhanced .message-markdown :deep(.md-copy) {opacity:1;background:linear-gradient(color-mix(in srgb,currentColor 18%,transparent),color-mix(in srgb,currentColor 18%,transparent)),var(--md-scroll-cover);}
 .reading-enhanced .message-markdown :deep(.md-scroll) {background:linear-gradient(to right,var(--md-scroll-cover),transparent) left,linear-gradient(to left,var(--md-scroll-cover),transparent) right,linear-gradient(to right,rgba(0,0,0,.38),transparent) left,linear-gradient(to left,rgba(0,0,0,.38),transparent) right;background-size:32px 100%,32px 100%,12px 100%,12px 100%;background-repeat:no-repeat;background-attachment:local,local,scroll,scroll;}
 .message-markdown {--md-scroll-cover:var(--f7-message-received-bg-color);}
 :deep(.message-sent) .message-markdown {--md-scroll-cover:var(--f7-message-sent-bg-color);}
