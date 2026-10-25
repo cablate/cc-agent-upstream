@@ -70,6 +70,7 @@
 </template>
 <script>
 import {bindConversationComposer} from "../js/conversationComposer.js";
+import {t} from "../js/i18n.js";
 import {bindKeyboardTrace} from "../js/keyboardDiagnostics.js";
 import ChatComposer from "../components/ChatComposer.vue";
 import AttachmentPreview from "../components/AttachmentPreview.vue";
@@ -114,12 +115,14 @@ onBeforeUnmount(()=>{stopColumnWatch();stopOrphanWatch?.();cleanup?.();cleanupCo
 const moreOpen=ref(false),morePoint=ref({clientX:0,clientY:0});
 const openMore=e=>{const r=e?.currentTarget?.getBoundingClientRect?.();morePoint.value=r?{clientX:r.left+r.width/2,clientY:r.bottom}:{clientX:e?.clientX??0,clientY:e?.clientY??0};moreOpen.value=true;};
 const moreItems=computed(()=>[
+ ...(workspace.detail.value?.phase==='stopped'?[]:[{value:'pause',f7:'pause',label:t('uxChatPause')}]),
  {value:'checklist',f7:'checkmark_square',label:workspace.ct('清單')},
  {value:'search',f7:'search',label:workspace.ct('搜尋這個對話')},
  {value:'profile',f7:'info',label:'Agent Profile'},
 ]);
 function pickMore(value){
- if(value==='checklist')workspace.toggleChecklist();
+ if(value==='pause')workspace.pause();
+ else if(value==='checklist')workspace.toggleChecklist();
  else if(value==='search')workspace.toggleSearch();
  else if(value==='profile')workspace.openProfile();
 }

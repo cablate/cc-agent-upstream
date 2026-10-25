@@ -21,6 +21,14 @@ export function setLang(l, { persist = true } = {}) {
 
 const dict = {
   en: {
+    // ux-chat
+    uxChatQueued: 'Waiting for agent pickup',
+    uxChatDelivered: 'Handed to agent',
+    uxChatReplied: 'Replied',
+    uxChatInterrupted: 'Interrupted',
+    uxChatUnanswered: 'No final reply received',
+    uxChatSending: 'Sending…',
+    uxChatPause: 'Pause agent',
     back: '← Back',
     tabChat: 'Agents',
     tabGroups: 'Groups',
@@ -122,6 +130,14 @@ const dict = {
     tooManyAttempts: 'Too many attempts. Please try again later.',
   },
   'zh-TW': {
+    // ux-chat
+    uxChatQueued: '等待 Agent 接收',
+    uxChatDelivered: '已交給 Agent',
+    uxChatReplied: '已回覆',
+    uxChatInterrupted: '已中斷',
+    uxChatUnanswered: '沒收到最終回覆',
+    uxChatSending: '送出中',
+    uxChatPause: '暫停 Agent',
     back: '← 上一步',
     tabChat: 'Agents',
     tabGroups: '群組',
