@@ -1,0 +1,243 @@
+{
+ "version": 1,
+ "generated": {"platform":"linux","node":"v22.23.4"},
+ "notes": ["Pins are the reviewed intended outcomes of each B case, captured on Linux (node:22-bookworm-slim) for upstream (up) and the candidate tree (ours); a run fails when either side differs.","The B4 kill-refusal pins use an injected kill that fails with EPERM. They show the code path, not a native macOS run: macOS EPERM behavior has not been verified natively."],
+ "files": {
+  "agentStore.cjs": {
+   "B3-relative-name-existing-only-in-working-folder": {
+    "unit": "B3",
+    "up": {"value":{"allowRefused":null,"value":{"./work-only":"參數 ./work-only 指向 agent 寫得到的地方"}}},
+    "ours": {"value":{"allowRefused":null,"value":{"./work-only":null}}}
+   },
+   "B3-relative-name-existing-only-in-home": {
+    "unit": "B3",
+    "up": {"value":{"allowRefused":null,"value":{"./home-only":null}}},
+    "ours": {"value":{"allowRefused":null,"value":{"./home-only":"參數 ./home-only 指向 agent 寫得到的地方"}}}
+   },
+   "B3-parent-relative-name": {
+    "unit": "B3",
+    "up": {"value":{"allowRefused":null,"value":{"../up-only":"參數 ../up-only 指向 agent 寫得到的地方"}}},
+    "ours": {"value":{"allowRefused":null,"value":{"../up-only":null}}}
+   },
+   "B6-prompt-after-stop": {
+    "unit": "B6",
+    "up": {"value":{"pending":[{"title":"Alpha","id":"prompt:<h0>:bb4693d0f8c808af140a85ce","text":"終端機在等你選擇：Do you want to proceed?"}],"memory":1,"view":null}},
+    "ours": {"value":{"pending":[],"memory":0,"view":null}}
+   },
+   "B6-prompt-after-rotation-to-new-session": {
+    "unit": "B6",
+    "up": {"value":{"generation":2,"pending":[{"title":"Alpha","id":"prompt:<h0>:bb4693d0f8c808af140a85ce","text":"終端機在等你選擇：Do you want to proceed?"}],"memory":1}},
+    "ours": {"value":{"generation":2,"pending":[],"memory":0}}
+   },
+   "B6-prompt-of-agent-whose-heartbeat-lapsed": {
+    "unit": "B6",
+    "up": {"value":{"pending":[{"title":"Alpha","id":"prompt:<h0>:bb4693d0f8c808af140a85ce","text":"終端機在等你選擇：Do you want to proceed?"}],"memory":1}},
+    "ours": {"value":{"pending":[],"memory":1}}
+   },
+   "B6-prompt-recorded-for-an-earlier-session": {
+    "unit": "B6",
+    "up": {"value":{"pending":[{"title":"Alpha","id":"prompt:<h0>:bb4693d0f8c808af140a85ce","text":"終端機在等你選擇：Do you want to proceed?"}],"memory":1}},
+    "ours": {"value":{"pending":[],"memory":1}}
+   }
+  },
+  "intentional.cjs": {
+   "B1-header-cf-connecting-ip-audit-reason": {
+    "unit": "B1",
+    "up": {"value":["forwarded by Cloudflare"]},
+    "ours": {"value":["forwarded by a tunnel or proxy"]}
+   },
+   "B1-header-cf-ray-audit-reason": {
+    "unit": "B1",
+    "up": {"value":["forwarded by Cloudflare"]},
+    "ours": {"value":["forwarded by a tunnel or proxy"]}
+   },
+   "B1-header-cdn-loop-audit-reason": {
+    "unit": "B1",
+    "up": {"value":["forwarded by Cloudflare"]},
+    "ours": {"value":["forwarded by a tunnel or proxy"]}
+   },
+   "B1-header-tailscale-user-login-response": {
+    "unit": "B1",
+    "up": {"value":{"reached":true,"nexted":true,"status":null,"body":null}},
+    "ours": {"value":{"reached":true,"nexted":false,"status":404,"body":{"message":"Not found"}}}
+   },
+   "B1-header-tailscale-user-login-audit": {
+    "unit": "B1",
+    "up": {"value":[]},
+    "ours": {"value":[{"source":"bridge","method":"GET","path":"/bridge/ready","status":404,"ip":"127.0.0.1"}]}
+   },
+   "B1-header-tailscale-user-login-audit-reason": {
+    "unit": "B1",
+    "up": {"value":[]},
+    "ours": {"value":["forwarded by a tunnel or proxy"]}
+   },
+   "B1-header-x-forwarded-for-response": {
+    "unit": "B1",
+    "up": {"value":{"reached":true,"nexted":true,"status":null,"body":null}},
+    "ours": {"value":{"reached":true,"nexted":false,"status":404,"body":{"message":"Not found"}}}
+   },
+   "B1-header-x-forwarded-for-audit": {
+    "unit": "B1",
+    "up": {"value":[]},
+    "ours": {"value":[{"source":"bridge","method":"GET","path":"/bridge/ready","status":404,"ip":"127.0.0.1"}]}
+   },
+   "B1-header-x-forwarded-for-audit-reason": {
+    "unit": "B1",
+    "up": {"value":[]},
+    "ours": {"value":["forwarded by a tunnel or proxy"]}
+   },
+   "B1-header-forwarded-response": {
+    "unit": "B1",
+    "up": {"value":{"reached":true,"nexted":true,"status":null,"body":null}},
+    "ours": {"value":{"reached":true,"nexted":false,"status":404,"body":{"message":"Not found"}}}
+   },
+   "B1-header-forwarded-audit": {
+    "unit": "B1",
+    "up": {"value":[]},
+    "ours": {"value":[{"source":"bridge","method":"GET","path":"/bridge/ready","status":404,"ip":"127.0.0.1"}]}
+   },
+   "B1-header-forwarded-audit-reason": {
+    "unit": "B1",
+    "up": {"value":[]},
+    "ours": {"value":["forwarded by a tunnel or proxy"]}
+   },
+   "B1-all-headers-audit-reason": {
+    "unit": "B1",
+    "up": {"value":["forwarded by Cloudflare"]},
+    "ours": {"value":["forwarded by a tunnel or proxy"]}
+   },
+   "B2-url-/BRIDGE/x-response": {
+    "unit": "B2",
+    "up": {"value":{"reached":true,"nexted":true,"status":null,"body":null}},
+    "ours": {"value":{"reached":true,"nexted":false,"status":404,"body":{"message":"Not found"}}}
+   },
+   "B2-url-/BRIDGE/x-audit": {
+    "unit": "B2",
+    "up": {"value":[]},
+    "ours": {"value":[{"source":"bridge","method":"GET","path":"/BRIDGE/x","status":404,"ip":"127.0.0.1"}]}
+   },
+   "B2-url-/BRIDGE/x-audit-reason": {
+    "unit": "B2",
+    "up": {"value":[]},
+    "ours": {"value":["not spelled /bridge"]}
+   },
+   "B2-url-/Bridge-response": {
+    "unit": "B2",
+    "up": {"value":{"reached":true,"nexted":true,"status":null,"body":null}},
+    "ours": {"value":{"reached":true,"nexted":false,"status":404,"body":{"message":"Not found"}}}
+   },
+   "B2-url-/Bridge-audit": {
+    "unit": "B2",
+    "up": {"value":[]},
+    "ours": {"value":[{"source":"bridge","method":"GET","path":"/Bridge","status":404,"ip":"127.0.0.1"}]}
+   },
+   "B2-url-/Bridge-audit-reason": {
+    "unit": "B2",
+    "up": {"value":[]},
+    "ours": {"value":["not spelled /bridge"]}
+   },
+   "B2-url-/bRiDgE/ready?x=1-response": {
+    "unit": "B2",
+    "up": {"value":{"reached":true,"nexted":true,"status":null,"body":null}},
+    "ours": {"value":{"reached":true,"nexted":false,"status":404,"body":{"message":"Not found"}}}
+   },
+   "B2-url-/bRiDgE/ready?x=1-audit": {
+    "unit": "B2",
+    "up": {"value":[]},
+    "ours": {"value":[{"source":"bridge","method":"GET","path":"/bRiDgE/ready?x=1","status":404,"ip":"127.0.0.1"}]}
+   },
+   "B2-url-/bRiDgE/ready?x=1-audit-reason": {
+    "unit": "B2",
+    "up": {"value":[]},
+    "ours": {"value":["not spelled /bridge"]}
+   },
+   "B2-wrong-case-then-failure-audit": {
+    "unit": "B2",
+    "up": {"value":{"reached":true,"nexted":true,"audits":[{"source":"bridge","method":"GET","path":"/Bridge/x","status":404}]}},
+    "ours": {"value":{"reached":true,"nexted":false,"status":404,"body":{"message":"Not found"},"audits":[{"source":"bridge","method":"GET","path":"/Bridge/x","status":404,"reason":"not spelled /bridge","ip":"127.0.0.1"}]}}
+   },
+   "B2-wrong-case-with-cloudflare-header-audit-reason": {
+    "unit": "B1",
+    "up": {"value":["forwarded by Cloudflare"]},
+    "ours": {"value":["forwarded by a tunnel or proxy"]}
+   },
+   "B2-lowercase-with-cloudflare-header-audit-reason": {
+    "unit": "B1",
+    "up": {"value":["forwarded by Cloudflare"]},
+    "ours": {"value":["forwarded by a tunnel or proxy"]}
+   },
+   "B5-prompt-viewing": {
+    "unit": "B5",
+    "up": {"value":{"after":[{"pushes":0,"pending":[false],"saves":1}],"pushes":[],"errors":[],"viewingAsked":1}},
+    "ours": {"value":{"after":[{"pushes":0,"pending":[true],"saves":0}],"pushes":[],"errors":[],"viewingAsked":1}}
+   },
+   "B5-prompt-viewing-then-leaves": {
+    "unit": "B5",
+    "up": {"value":{"after":[{"pushes":0,"pending":[false],"saves":1},{"pushes":0,"pending":[false],"saves":1}],"pushes":[],"errors":[],"viewingAsked":1}},
+    "ours": {"value":{"after":[{"pushes":0,"pending":[true],"saves":0},{"pushes":1,"pending":[false],"saves":1}],"pushes":[{"conversationId":"c1","replyId":"prompt:abcd1234:key:1700000000000","ownerUserId":"u1","agentName":"Agent","replyText":"Terminal waits"}],"errors":[],"viewingAsked":2}}
+   },
+   "B5-prompt-and-reply-viewing": {
+    "unit": "B5",
+    "up": {"value":{"after":[{"pushes":0,"pending":[false,false,false],"saves":3},{"pushes":0,"pending":[false,false,false],"saves":3}],"pushes":[],"errors":[],"viewingAsked":3}},
+    "ours": {"value":{"after":[{"pushes":0,"pending":[false,true,false],"saves":2},{"pushes":1,"pending":[false,false,false],"saves":3}],"pushes":[{"conversationId":"c1","replyId":"prompt:abcd1234:key:1700000000000","ownerUserId":"u1","agentName":"Agent","replyText":"Terminal waits"}],"errors":[],"viewingAsked":4}}
+   },
+   "B5-group-prompt-viewing": {
+    "unit": "B5",
+    "up": {"value":{"after":[{"pushes":0,"pending":[false],"saves":1},{"pushes":0,"pending":[false],"saves":1}],"pushes":[],"errors":[],"viewingAsked":1}},
+    "ours": {"value":{"after":[{"pushes":0,"pending":[true],"saves":0},{"pushes":1,"pending":[false],"saves":1}],"pushes":[{"conversationId":"g1","replyId":"prompt:abcd1234:key:1700000000000","ownerUserId":"u1","agentName":"Room","replyText":"Terminal waits","groupId":"g1"}],"errors":[],"viewingAsked":2}}
+   },
+   "B5-message-without-id": {
+    "unit": "B5",
+    "up": {"value":{"after":[{"pushes":1,"pending":[false],"saves":1}],"pushes":[{"conversationId":"c1","replyId":{"$parity":"undefined"},"ownerUserId":"u1","agentName":"Agent","replyText":"hello"}],"errors":[],"viewingAsked":1}},
+    "ours": {"value":{"after":[{"pushes":0,"pending":[true],"saves":0}],"pushes":[],"errors":["Notification queue temporarily unavailable"],"viewingAsked":1}}
+   }
+  },
+  "scheduleChecks.cjs": {
+   "exit 0 with JSON, kill refused: result": {
+    "unit": "B4",
+    "up": {"value":{"ok":true,"exitCode":0,"signal":null,"timedOut":false,"durationMs":"number","json":{"ok":true},"stdoutTail":"{\"ok\":true}\n","stderrTail":"","error":null}},
+    "ours": {"value":{"ok":false,"exitCode":0,"signal":null,"timedOut":false,"durationMs":"number","json":null,"stdoutTail":"{\"ok\":true}\n","stderrTail":"","error":"無法終止內建檢查：kill EPERM"}}
+   },
+   "spawn error event: kill attempts": {
+    "unit": "B4",
+    "up": {"value":[{"pid":"NaN","signal":"SIGKILL"}]},
+    "ours": {"value":[]}
+   },
+   "timeout: kill, taskkill, destroy and timer calls": {
+    "unit": "B4",
+    "up": {"value":{"kill":[{"pid":"-4242","signal":"SIGKILL"},{"pid":"-4242","signal":"SIGKILL"}],"spawnSync":[],"destroyed":["stdout","stderr"],"delays":[5000]}},
+    "ours": {"value":{"kill":[{"pid":"-4242","signal":"SIGKILL"}],"spawnSync":[],"destroyed":["stdout","stderr"],"delays":[5000]}}
+   },
+   "timeout, kill refused: result": {
+    "unit": "B4",
+    "up": {"value":{"ok":false,"exitCode":null,"signal":"SIGKILL","timedOut":true,"durationMs":"number","json":null,"stdoutTail":"","stderrTail":"","error":"逾時（5 秒）"}},
+    "ours": {"value":{"ok":false,"exitCode":null,"signal":null,"timedOut":true,"durationMs":"number","json":null,"stdoutTail":"","stderrTail":"","error":"無法終止內建檢查：kill EPERM"}}
+   },
+   "flood: settled when the limit is crossed": {
+    "unit": "B4",
+    "up": {"value":{"afterFlood":false,"afterClose":true}},
+    "ours": {"value":{"afterFlood":true,"afterClose":true}}
+   },
+   "flood: kill, taskkill, destroy and timer calls": {
+    "unit": "B4",
+    "up": {"value":{"kill":[{"pid":"-4242","signal":"SIGKILL"},{"pid":"-4242","signal":"SIGKILL"}],"spawnSync":[],"destroyed":["stdout","stderr"],"delays":[120000,1000]}},
+    "ours": {"value":{"kill":[{"pid":"-4242","signal":"SIGKILL"}],"spawnSync":[],"destroyed":["stdout","stderr"],"delays":[120000,1000]}}
+   },
+   "flood: child exits 0 by itself, result": {
+    "unit": "B4",
+    "up": {"value":{"result":{"ok":false,"exitCode":0,"signal":null,"timedOut":false,"durationMs":"number","json":null,"stdoutTail":{"length":4096,"head":"yyyyyyyyyyyyyyyy","end":"yyyyyyyyyyyyyyyy"},"stderrTail":"","error":"輸出過多，已終止"},"marks":{"afterFlood":false,"afterClose":true}}},
+    "ours": {"value":{"result":{"ok":false,"exitCode":null,"signal":"SIGKILL","timedOut":false,"durationMs":"number","json":null,"stdoutTail":{"length":4096,"head":"yyyyyyyyyyyyyyyy","end":"yyyyyyyyyyyyyyyy"},"stderrTail":"","error":"輸出過多，已終止"},"marks":{"afterFlood":true,"afterClose":true}}}
+   },
+   "flood, kill refused: result and marks": {
+    "unit": "B4",
+    "up": {"value":{"result":{"ok":false,"exitCode":0,"signal":null,"timedOut":false,"durationMs":"number","json":null,"stdoutTail":{"length":4096,"head":"yyyyyyyyyyyyyyyy","end":"yyyyyyyyyyyyyyyy"},"stderrTail":"","error":"輸出過多，已終止"},"marks":{"afterFlood":false,"afterClose":true}}},
+    "ours": {"value":{"result":{"ok":false,"exitCode":null,"signal":null,"timedOut":false,"durationMs":"number","json":null,"stdoutTail":{"length":4096,"head":"yyyyyyyyyyyyyyyy","end":"yyyyyyyyyyyyyyyy"},"stderrTail":"","error":"無法終止內建檢查：kill EPERM"},"marks":{"afterFlood":true,"afterClose":true}}}
+   },
+   "flood: output arriving after the limit, result": {
+    "unit": "B4",
+    "up": {"value":{"ok":false,"exitCode":null,"signal":"SIGKILL","timedOut":false,"durationMs":"number","json":null,"stdoutTail":{"length":4096,"head":"yyyyyyyyyyyyyyyy","end":"yyyylate output\n"},"stderrTail":"","error":"輸出過多，已終止"}},
+    "ours": {"value":{"ok":false,"exitCode":null,"signal":"SIGKILL","timedOut":false,"durationMs":"number","json":null,"stdoutTail":{"length":4096,"head":"yyyyyyyyyyyyyyyy","end":"yyyyyyyyyyyyyyyy"},"stderrTail":"","error":"輸出過多，已終止"}}
+   }
+  }
+ }
+}

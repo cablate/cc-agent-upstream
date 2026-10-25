@@ -1,0 +1,48 @@
+# Windows-compatibility branch checks. Off Windows, every behavior must equal
+# upstream (main): .github/parity/probe.cjs loads the same cases against both
+# trees and fails on any difference not declared as an intended B unit.
+name: parity
+on:
+  push:
+    branches: ['ci/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  parity:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ours
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: up
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Same behavior as upstream
+        env:
+          PARITY_CASES: ${{ github.workspace }}/ours/.github/parity/cases
+          PARITY_UP_ROOT: ${{ github.workspace }}/up
+          PARITY_OURS_ROOT: ${{ github.workspace }}/ours
+        run: node ours/.github/parity/probe.cjs
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
