@@ -1697,8 +1697,8 @@ function setPreferences(owner,{compactThreshold,terminalSwitch,terminalFirst,tra
  if(retention!==undefined&&retention!==null&&(!Number.isInteger(retention)||retention<1||retention>RETENTION_MAX_DAYS))throw error(`保留天數必須是 1–${RETENTION_MAX_DAYS} 天，或不刪除`);
  // The chat/terminal switch is off unless an admin asks for it: the conversation page is the normal way in, and the
  // terminal is for looking at what an agent is doing.
- if(terminalFirst!==undefined&&typeof terminalFirst!=='boolean')throw error('先顯示設定必須是開或關');
  if(terminalSwitch!==undefined&&typeof terminalSwitch!=='boolean')throw error('終端機切換設定必須是開或關');
+ if(terminalFirst!==undefined&&typeof terminalFirst!=='boolean')throw error('先顯示設定必須是開或關');
  // Whether the conversation's navbar offers the Transcript column; off until an admin switches it on. Its routes stay admin-only either way.
  if(transcriptSwitch!==undefined&&typeof transcriptSwitch!=='boolean')throw error('Transcript 檢視設定必須是開或關');
  if(terminalPromptReminder!==undefined&&typeof terminalPromptReminder!=='boolean')throw error('終端機提醒設定必須是開或關');
@@ -1706,8 +1706,8 @@ function setPreferences(owner,{compactThreshold,terminalSwitch,terminalFirst,tra
  if(compactThreshold!==undefined&&(!Number.isInteger(compactThreshold)||compactThreshold<0||compactThreshold>10))throw error('Compact 門檻必須為 0–10 次（0 為不自動換代）');
  // All checked: saved together.
  if(terminalPromptReminder!==undefined)state.agentSettings={...state.agentSettings,terminalPromptReminder};
- if(terminalFirst!==undefined)state.agentSettings={...state.agentSettings,terminalFirst};
  if(terminalSwitch!==undefined)state.agentSettings={...state.agentSettings,terminalSwitch};
+ if(terminalFirst!==undefined)state.agentSettings={...state.agentSettings,terminalFirst};
  if(transcriptSwitch!==undefined)state.agentSettings={...state.agentSettings,transcriptSwitch};
  if(compactThreshold!==undefined){state.agentSettings={...state.agentSettings,compactThreshold};for(const c of state.conversations)if(!c.archived&&!c.thresholdOwn){c.threshold=compactThreshold;if(compactThreshold===0)c.pendingRotation=false;}}
  if(retention!==undefined){const settings={...state.agentSettings};if(retention===null)delete settings.archiveRetentionDays;else settings.archiveRetentionDays=retention;state.agentSettings=settings;}

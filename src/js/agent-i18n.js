@@ -2,6 +2,7 @@ import {lang} from './i18n.js';
 import {PRODUCT} from './productConfig.js';
 const english = {
 "暫停 Agent":"Pause agent",
+"暫停會停下整個 Agent，聊天紀錄與 session 都會保留。之後要按「啟動」才會接回。":"Pause stops the whole agent and keeps the chat history and session. Press Start to reconnect later.",
 "暫停會停下整個 Agent，聊天紀錄與 session 都會保留。之後要按「啟動」才會接回；只想停這一輪請用停止鈕或 Esc。":"Pause stops the whole agent and keeps the chat history and session. Press Start to reconnect later; use the stop button or Esc to stop only this turn.",
 "這些 Agent 沒有停下來，請手動停止：":"These agents did not stop. Stop them by hand:",
 "無法確認這個帳號的 Agent 都已停止，請檢查並手動停止。":"Could not confirm that this account's agents all stopped. Check them and stop them by hand.",
@@ -673,9 +674,7 @@ const english = {
   "帳號已停用": "Disabled",
   "拖曳調整順序": "Drag to reorder",
   
-  "清單剛剛變了，已重新載入，請再排一次。": "The list changed meanwhile and was reloaded; please order it again.",
-  // ux-chat
-  "暫停會停下整個 Agent，之後要手動啟動；只想停這一輪請用停止鈕或 Esc。聊天紀錄仍會保留。": "Pausing stops the entire agent. You will need to start it manually later. To stop only this turn, use the stop button or Esc. Chat history is kept."
+  "清單剛剛變了，已重新載入，請再排一次。": "The list changed meanwhile and was reloaded; please order it again."
 };
 // {product} in a text is the product's name (productConfig.js), so the account and
 // settings texts need no product name of their own.
