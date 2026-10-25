@@ -297,9 +297,13 @@ const GROUP_ID=/^[A-Za-z0-9-]{1,64}$/;
 // of the agents in it, or Claude Code's when it is empty.
 function listGroups(owner){return (state.agentSettings?.listGroups?.[owner]||[]).map(g=>({id:g.id,name:g.name,source:SOURCES.includes(g.source)?g.source:groupSource(owner,g.id)}));}
 function groupSource(owner,id){const c=state.conversations.find(c=>c.owner===owner&&!c.archived&&c.listGroup===id);return c?sourceFor(c):'native';}
-function listPreferences(owner){return {autoSort:autoSort(owner),groups:listGroups(owner)};}
-function setListPreferences(owner,{autoSort:on,groups}={}){
- if(on===undefined&&groups===undefined)throw error('沒有要更新的設定');
+const UX_FEATURE_KEYS=["desktopRail","attentionPanel","statusColors","messageStatus","readingEnhancements","mobilePause"];
+function uxFeatures(owner){return Object.fromEntries(UX_FEATURE_KEYS.map(key=>[key,state.agentSettings?.listUxFeatures?.[owner]?.[key]===true]));}
+function listPreferences(owner){return {autoSort:autoSort(owner),groups:listGroups(owner),uxFeatures:uxFeatures(owner)};}
+function setListPreferences(owner,{autoSort:on,groups,uxFeatures:features,...rest}={}){
+ if(Object.keys(rest).length)throw error('不支援的設定：'+Object.keys(rest).join(', '));
+ if(features!==undefined&&(!features||typeof features!=='object'||Array.isArray(features)||Object.entries(features).some(([key,value])=>!UX_FEATURE_KEYS.includes(key)||typeof value!=='boolean')))throw error('介面設定必須是支援的開關');
+ if(on===undefined&&groups===undefined&&features===undefined)throw error('沒有要更新的設定');
  if(on!==undefined&&typeof on!=='boolean')throw error('自動排序設定必須是開或關');
  let next;
  if(groups!==undefined){
@@ -316,6 +320,7 @@ function setListPreferences(owner,{autoSort:on,groups}={}){
  }
  // Turned off, the list stays exactly as it looked.
  if(on===false&&autoSort(owner))freezeOrder(owner,state.conversations.filter(c=>c.owner===owner&&!c.archived));
+ if(features!==undefined)state.agentSettings={...state.agentSettings,listUxFeatures:{...state.agentSettings?.listUxFeatures,[owner]:{...uxFeatures(owner),...features}}};
  if(on!==undefined){const owners={...(state.agentSettings?.listAutoSort||{})};if(on)owners[owner]=true;else delete owners[owner];state.agentSettings={...state.agentSettings,listAutoSort:owners};}
  if(next){
   const owners={...(state.agentSettings?.listGroups||{})};if(next.length)owners[owner]=next;else delete owners[owner];
@@ -974,7 +979,7 @@ function syncTerminalPrompt(c){
  const t=prompts.get(c.id),label=t.title||t.options[0].label;
  if(t.seen===2){if(g.phase==='busy'||busyElsewhere(c,g)){t.notified=true;t.notifyPending=true;t.notifyText=('終端機在等你選擇：'+label).slice(0,300);}else t.ownerOpened=true;}
  if(!t.notified)return;
- if(!t.reminder&&Date.now()-Date.parse(t.since)>=TERMINAL_PROMPT_REMINDER_MS){t.notifyPending=false;t.reminder={id:t.id+':reminder',notifyPending:true,notifyText:('已等待 '+TERMINAL_PROMPT_REMINDER_MS/60_000+' 分鐘，終端機仍在等你選擇：'+label).slice(0,300)};}
+ if(state.agentSettings?.terminalPromptReminder===true&&!t.reminder&&Date.now()-Date.parse(t.since)>=TERMINAL_PROMPT_REMINDER_MS){t.notifyPending=false;t.reminder={id:t.id+':reminder',notifyPending:true,notifyText:('已等待 '+TERMINAL_PROMPT_REMINDER_MS/60_000+' 分鐘，終端機仍在等你選擇：'+label).slice(0,300)};}
 }
 // The owner's choice in that menu, only if the same menu is still on the screen.
 function chooseTerminalOption(c,data){
@@ -1658,11 +1663,11 @@ function relaunchMarked(){
  }
 }
 setInterval(relaunchMarked,30_000).unref();
-function getPreferences(owner){return {scopedAgents:!platform.isWin,wrapUp:wrapUpSettings(ownerLanguage(owner)),archiveRetentionDays:archiveRetentionDays(),compactThreshold:state.agentSettings?.compactThreshold??5,terminalSwitch:state.agentSettings?.terminalSwitch===true,transcriptSwitch:state.agentSettings?.transcriptSwitch===true};}
-function setPreferences(owner,{compactThreshold,terminalSwitch,transcriptSwitch,archiveRetentionDays:retention,wrapUp,...rest}={}){
+function getPreferences(owner){return {scopedAgents:!platform.isWin,wrapUp:wrapUpSettings(ownerLanguage(owner)),archiveRetentionDays:archiveRetentionDays(),compactThreshold:state.agentSettings?.compactThreshold??5,terminalSwitch:state.agentSettings?.terminalSwitch===true,transcriptSwitch:state.agentSettings?.transcriptSwitch===true,terminalPromptReminder:state.agentSettings?.terminalPromptReminder===true};}
+function setPreferences(owner,{compactThreshold,terminalSwitch,transcriptSwitch,terminalPromptReminder,archiveRetentionDays:retention,wrapUp,...rest}={}){
  // Unsupported settings are refused, never ignored.
  if(Object.keys(rest).length)throw error('不支援的設定：'+Object.keys(rest).join(', '));
- if(compactThreshold===undefined&&terminalSwitch===undefined&&transcriptSwitch===undefined&&retention===undefined&&wrapUp===undefined)throw error('沒有要更新的設定');
+ if(compactThreshold===undefined&&terminalSwitch===undefined&&transcriptSwitch===undefined&&retention===undefined&&wrapUp===undefined&&terminalPromptReminder===undefined)throw error('沒有要更新的設定');
  // Every field is checked before any is saved: a request refused over one field leaves
  // all the others as they were, in memory and on disk.
  // The wrap-up check: on or off, the minutes an agent sits idle first, and its words
@@ -1681,9 +1686,11 @@ function setPreferences(owner,{compactThreshold,terminalSwitch,transcriptSwitch,
  if(terminalSwitch!==undefined&&typeof terminalSwitch!=='boolean')throw error('終端機切換設定必須是開或關');
  // Whether the conversation's navbar offers the Transcript column; off until an admin switches it on. Its routes stay admin-only either way.
  if(transcriptSwitch!==undefined&&typeof transcriptSwitch!=='boolean')throw error('Transcript 檢視設定必須是開或關');
+ if(terminalPromptReminder!==undefined&&typeof terminalPromptReminder!=='boolean')throw error('終端機提醒設定必須是開或關');
  // 0 means never hand off automatically; the manual handoff stays.
  if(compactThreshold!==undefined&&(!Number.isInteger(compactThreshold)||compactThreshold<0||compactThreshold>10))throw error('Compact 門檻必須為 0–10 次（0 為不自動換代）');
  // All checked: saved together.
+ if(terminalPromptReminder!==undefined)state.agentSettings={...state.agentSettings,terminalPromptReminder};
  if(terminalSwitch!==undefined)state.agentSettings={...state.agentSettings,terminalSwitch};
  if(transcriptSwitch!==undefined)state.agentSettings={...state.agentSettings,transcriptSwitch};
  if(compactThreshold!==undefined){state.agentSettings={...state.agentSettings,compactThreshold};for(const c of state.conversations)if(!c.archived&&!c.thresholdOwn){c.threshold=compactThreshold;if(compactThreshold===0)c.pendingRotation=false;}}

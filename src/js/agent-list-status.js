@@ -1,7 +1,7 @@
-export function agentListStatus(agent, activity = '') {
+export function agentListStatus(agent, activity = '', isAdmin = false) {
   if (agent.phase === 'error') return 'error';
-  if (agent.terminalPrompt) return 'waiting';
-  if (agent.connected && (agent.phase === 'busy' || agent.background > 0 || activity)) return 'busy';
+  if (isAdmin && agent.terminalPrompt) return 'waiting';
+  if (activity || (agent.connected && (agent.phase === 'busy' || agent.background > 0))) return 'busy';
   if (agent.phase === 'stopped') return 'paused';
   return agent.connected ? 'online' : 'offline';
 }

@@ -20,12 +20,19 @@ import { t } from '../js/i18n.js';
 import { agentUrl } from '../js/agentUrl.js';
 import { defaultAvatar } from '../js/avatarShape.js';
 import { agentListStatus } from '../js/agent-list-status.js';
+import {listGroups,uxFeatures} from '../js/agentPreferences.js';
 const w = inject('workspace');
-const rows = computed(() => w.listRows.value.flatMap(row => row.kind === 'slot' ? [] : row.kind === 'group' && row.collapsed ? [row, ...row.members.map(agent => ({ kind: 'agent', id: agent.id, agent }))] : [row]));
+const rows = computed(() => {
+  const items=w.conversations.value;
+  const known=new Set(listGroups.value.map(g=>g.id));
+  const agentRows=items=>items.map(agent=>({kind:'agent',id:agent.id,agent}));
+  return [...agentRows(items.filter(a=>!known.has(a.listGroup))),...listGroups.value.flatMap(group=>{const members=items.filter(a=>a.listGroup===group.id);return members.length?[{kind:'group',id:group.id,name:group.name},...agentRows(members)]:[];})];
+});
 const agents = computed(() => rows.value.filter(row => row.kind === 'agent'));
 const current = computed(() => w.openingId.value || w.selected.value);
-const status = agent => agentListStatus(agent, w.activity(agent));
+const status = agent => uxFeatures.value.statusColors ? agentListStatus(agent, w.activity(agent), w.user.value?.role==='admin') : (w.activity(agent)||agent.connected&&(agent.phase==='busy'||agent.background>0)?'busy':agent.connected?'online':'offline');
 function onSwitch(event) {
+  if (event.repeat || event.getModifierState?.('AltGraph')) return;
   if (!event.ctrlKey || !event.altKey || event.metaKey || event.shiftKey || !['ArrowUp', 'ArrowDown'].includes(event.key) || event.isComposing || event.keyCode === 229 || event.defaultPrevented) return;
   if (event.target?.closest?.('.terminal-pane') || document.querySelector('.dialog.modal-in,.popup.modal-in,.sheet-modal.modal-in,.popover.modal-in,.actions-modal.modal-in,[aria-modal="true"]')) return;
   if (!window.matchMedia('(min-width: 1024px)').matches || !agents.value.length) return;
@@ -39,7 +46,7 @@ onUnmounted(() => document.removeEventListener('keydown', onSwitch));
 </script>
 
 <style scoped>
-.agent-rail {display:flex;flex-direction:column;flex:1;min-height:90px;overflow:hidden;padding:0 12px;}
+.agent-rail {display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow:auto;padding:0 12px;}
 .rail-heading {display:flex;align-items:center;justify-content:space-between;padding:4px 10px 10px;color:var(--cc-color-text-secondary);font-size:12px;font-weight:600;}
 .rail-heading span {font-size:10px;font-weight:400;}
 .rail-list {min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:8px;}

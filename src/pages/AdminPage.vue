@@ -20,6 +20,7 @@
       <f7-list-item class="wrap-up-toggle" :title="ct('自動收尾檢查')" :footer="ct('預設關閉。開啟後，Agent 完成任務並閒置一段時間，會自動請它確認工作已保存、筆記是最新的；只讀資料或回答問題不會送。')"><template #media><f7-icon f7="checkmark_seal"/></template><template #after><label class="toggle"><input type="checkbox" :aria-label="ct('自動收尾檢查')" :checked="wrapUp.enabled" @change="saveWrapUp({enabled:$event.target.checked})"/><span class="toggle-icon"></span></label></template></f7-list-item>
       <f7-list-item v-if="wrapUp.enabled" link no-chevron class="wrap-up-minutes" :title="ct('收尾檢查等待時間')" :after="wrapUp.minutes+' '+ct('分鐘')" @click.prevent="openDropdown('wrapUp',$event)"><template #media><f7-icon f7="timer"/></template></f7-list-item>
       <f7-list-item v-if="wrapUp.enabled" link no-chevron class="wrap-up-text" :title="ct('收尾檢查內容')" :after="wrapUp.custom?ct('自訂'):ct('內建')" @click.prevent="editWrapUpText"><template #media><f7-icon f7="text_alignleft"/></template></f7-list-item>
+      <f7-list-item class="terminal-prompt-reminder" :title="t('uxReminder')" :footer="t('uxReminderHint')"><template #media><f7-icon f7="bell_badge"/></template><template #after><label class="toggle"><input type="checkbox" :aria-label="t('uxReminder')" :checked="terminalPromptReminder" @change="saveTerminalPromptReminder($event.target.checked)"/><span class="toggle-icon"></span></label></template></f7-list-item>
       <f7-list-item link no-chevron class="archive-retention" :title="ct('Agent 刪除')" :after="retentionLabel(archiveRetentionDays)" @click.prevent="openDropdown('retention',$event)"><template #media><f7-icon f7="trash"/></template></f7-list-item>
     </f7-list>
 
@@ -61,7 +62,7 @@ import GlassDropdown from '../components/GlassDropdown.vue';
 import UsageMeters from '../components/UsageMeters.vue';
 async function pullRefresh(done) { try { await Promise.all([loadUsage({fresh: true}), loadOpenReports(), loadAgentPreferences().catch(() => {})]); } finally { done(); } }
 import { usageGroups, watchUsage, loadUsage } from '../js/usage.js';
-import {wrapUp,archiveRetentionDays,compactThreshold,terminalSwitch,transcriptSwitch,loadAgentPreferences,saveAgentPreferences} from '../js/agentPreferences.js';
+import {wrapUp,archiveRetentionDays,compactThreshold,terminalSwitch,transcriptSwitch,terminalPromptReminder,loadAgentPreferences,saveAgentPreferences} from '../js/agentPreferences.js';
 
 const isAdmin = computed(() => currentUser.value?.role === 'admin');
 const toast = (text) => f7.toast.create({ text, closeTimeout: 1800 }).open();
@@ -77,6 +78,11 @@ const openReports=ref(0);
 async function loadOpenReports(){if(!isAdmin.value)return;try{openReports.value=((await api('/access-reports')).reports||[]).filter(r=>r.status==='open').length;}catch{}}
 async function loadCompactPolicy(){if(!isAdmin.value)return;try{await loadAgentPreferences();}catch{}}
 // Off unless asked for: the switch only appears in a conversation once this is on.
+async function saveTerminalPromptReminder(on){
+  const previous=terminalPromptReminder.value;terminalPromptReminder.value=on;
+  try{await saveAgentPreferences({terminalPromptReminder:on});toast(t('settingsSaved'));}
+  catch(e){terminalPromptReminder.value=previous;f7.dialog.alert(e.message||t('settingsFailed'));}
+}
 async function saveTranscriptSwitch(on){
   const previous=transcriptSwitch.value;
   transcriptSwitch.value=on;

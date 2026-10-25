@@ -55,7 +55,7 @@
         Not in the scope-only editor, which saves the access scope alone. -->
    <template v-if="allowFull&&modelValue.access?.full&&!accessOnly">
     <f7-list inset strong-ios class="agent-workspace">
-     <f7-list-input :label="ct('工作資料夾')" type="textarea" :resizable="true" rows="2" :value="modelValue.workspace||''" @update:value="set('workspace',$event)" :placeholder="ct('留空：用 CC Agent 自己建的資料夾；或填 repo 的絕對路徑，例如 /Users/me/my-repo')" autocapitalize="off" autocorrect="off" spellcheck="false"/>
+     <f7-list-input :label="ct('工作資料夾')" :type="scopedAgents===false?'textarea':'text'" :resizable="scopedAgents===false" :rows="scopedAgents===false?2:undefined" :value="modelValue.workspace||''" @update:value="set('workspace',$event)" :placeholder="scopedAgents===false?t('uxWindowsWorkspace'):ct('留空：用 CC Agent 自己建的資料夾；或填 repo 的絕對路徑，例如 /Users/me/my-repo')" autocapitalize="off" autocorrect="off" spellcheck="false"/>
     </f7-list>
     <f7-block-footer class="workspace-note">{{ct('填了之後，這個 Agent 的 Claude 直接在那個 repo 裡工作，repo 自己的 CLAUDE.md、AGENTS.md、.claude/settings.json 的 hooks 與 skills 都會生效；CC Agent 不會在裡面寫任何檔。已經開始的對話改了資料夾會換成新的一代接續。')}}</f7-block-footer>
     <f7-list inset strong-ios class="agent-global-harness">

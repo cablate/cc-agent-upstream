@@ -25,7 +25,7 @@ import {activeTab,setActiveTab} from './tab-session.js';
 import {useTheme} from '../theme.js';
 import {renderMarkdown,renderTypedMarkdown} from './markdown.js';
 export function useAgentChat(){
-const busy=ref(false),error=ref('');
+const busy=ref(false),messageSending=ref(false),error=ref('');
 let opening=0;
 // The address mirrors the open agent but never adds a history entry. F7's own
 // router stack is the only "back" this app has: the navbar back link and the
@@ -802,17 +802,17 @@ const mention=useMentionMenu({draft,agents:computed(()=>user.value?.role!=='admi
 const mentionCaret=()=>caretToEnd(scroll.value?.closest('.page'));
 function pickMention(item){mention.complete(item,mentionCaret);}
 async function runSlashCommand(id,text){
- busy.value=true;
+ messageSending.value=true;busy.value=true;
  await attempt(async()=>{
   await api('/conversations/'+id+'/command',{method:'POST',body:JSON.stringify({command:text.trim()})});
   if(drafts.get(id)===text)drafts.delete(id);if(selected.value===id&&draft.value===text)draft.value='';
   if(showTerminalSwitch.value&&selected.value===id)terminalOpen.value=true;
   await refresh();await bottom();
  });
- busy.value=false;
+ messageSending.value=false;busy.value=false;
 }
 function composerKeydown(e){if(slash.onKeydown(e,send))return;if(mention.onKeydown(e,mentionCaret))return;if(e.key==='Enter'&&!e.shiftKey&&!e.altKey&&!e.ctrlKey&&!e.metaKey)enterSend(e);}
-async function send(){if(!canSend.value)return;if(!files.value.length&&user.value?.role==='admin'&&detail.value?.mode==='claude'&&await slash.resolveTerminal(draft.value))return runSlashCommand(selected.value,draft.value);const id=selected.value,text=draft.value,items=[...files.value],requestId=attachmentDrafts.requestId(id,text,items);busy.value=true;await attempt(async()=>{const attachmentIds=await attachmentDrafts.upload(id,items);await api('/conversations/'+id+'/messages',{method:'POST',body:JSON.stringify({text,requestId,attachmentIds,mentions:mention.current.value.map(m=>m.id)})});attachmentDrafts.sent(id,items);if(drafts.get(id)===text)drafts.delete(id);if(selected.value===id&&draft.value===text)draft.value='';await refresh();await bottom();});busy.value=false;}
+async function send(){if(!canSend.value)return;if(!files.value.length&&user.value?.role==='admin'&&detail.value?.mode==='claude'&&await slash.resolveTerminal(draft.value))return runSlashCommand(selected.value,draft.value);const id=selected.value,text=draft.value,items=[...files.value],requestId=attachmentDrafts.requestId(id,text,items);messageSending.value=true;busy.value=true;await attempt(async()=>{const attachmentIds=await attachmentDrafts.upload(id,items);await api('/conversations/'+id+'/messages',{method:'POST',body:JSON.stringify({text,requestId,attachmentIds,mentions:mention.current.value.map(m=>m.id)})});attachmentDrafts.sent(id,items);if(drafts.get(id)===text)drafts.delete(id);if(selected.value===id&&draft.value===text)draft.value='';await refresh();await bottom();});messageSending.value=false;busy.value=false;}
 
 function enterSend(e){if(!shouldSendOnEnter(e,f7.device))return;e.preventDefault();send();}
 async function action(name,body={}){
@@ -865,7 +865,7 @@ function onEscape(event){
  event.preventDefault();interruptTurn();
 }
 // Copying code from the bubbles lives with the bubbles, in components/MessageList.vue.
-function pause(){f7.dialog.confirm(ct("暫停會停下整個 Agent，之後要手動啟動；只想停這一輪請用停止鈕或 Esc。聊天紀錄仍會保留。"),ct("暫停執行"),()=>action('stop'));}
+function pause(){f7.dialog.confirm(ct(agentPreferences.uxFeatures.value.mobilePause?"暫停會停下整個 Agent，之後要手動啟動；只想停這一輪請用停止鈕或 Esc。聊天紀錄仍會保留。":"暫停會中斷執行中的回覆。聊天紀錄仍會保留。"),ct("暫停執行"),()=>action('stop'));}
 // A pause and a start, so it also ends a turn still running; the session and chat are kept.
 function restart(){f7.dialog.confirm(ct("重啟會中斷執行中的回覆，並接回同一個 session。聊天紀錄仍會保留。"),ct("重啟"),async()=>{if(await action('stop'))await action('start');});}
 // From a row's swipe on the Agents list, for that agent rather than the open one.
@@ -979,7 +979,7 @@ async function tick(){
  try{await attempt(refresh);}finally{fetching=false;}
  if(liveChanged)tick();
 }
-watch(user,async(next,prev)=>{if(next?.id===prev?.id)return;signedIn=false;opening++;cancelHistoryPaging();closeNew();busy.value=false;operations.value={};operationErrors.value={};drafts.clear();conversations.value=[];listLoaded.value=false;agentPreferences.listGroups.value=[];selected.value=null;detail.value=null;draft.value='';terminalOpen.value=false;// No one yet is also the moment before the sign-in check answers: the cover stays
+watch(user,async(next,prev)=>{if(next?.id===prev?.id)return;signedIn=false;opening++;cancelHistoryPaging();closeNew();busy.value=false;operations.value={};operationErrors.value={};drafts.clear();conversations.value=[];listLoaded.value=false;agentPreferences.listGroups.value=[];agentPreferences.absorbList(null);messageSending.value=false;selected.value=null;detail.value=null;draft.value='';terminalOpen.value=false;// No one yet is also the moment before the sign-in check answers: the cover stays
 // (it shows only to someone signed in), for the look that follows it.
 if(!next)return;try{await attempt(loadPreferences);await attempt(agentPreferences.loadListPreferences);await attempt(refresh);await nextTick();if(user.value?.id!==next.id)return;signedIn=true;if(next.role==='admin')loadGroups().catch(()=>{});await openNotification();await notifications.look();}finally{if(user.value?.id===next.id){startupLooking=false;uncoverSoon(0);leaveStart();}}},{immediate:true});
 let unwatchWidth;
@@ -994,6 +994,6 @@ onMounted(()=>{
  poll=setInterval(tick,1200);});
 onUnmounted(()=>{boxWatch?.disconnect();document.removeEventListener('keydown',onEscape);document.removeEventListener('keydown',onFind);window.removeEventListener('popstate',restoreUrl);notifications.stop();document.removeEventListener('visibilitychange',onAppVisible);window.removeEventListener('focus',onAppFocus);unwatchWidth?.();disposed=true;cancelHistoryPaging();operations.value={};clearInterval(poll);live?.close();live=null;wakeRun++;});
 
-return {unreadOf,unreadLabel,unreadTotal,mixedList:computed(mixed),chosenByPresence,chooseByPresence,atStart,directOpening,toGroups,openingId,toList,cancelOpening,toggleGroupCollapse,openGroup,mention,pickMention,checklistOpen,checklistPanelVisible,checklistPopupOpen,toggleChecklist,typingBubble,searchPanelVisible,searchPopupOpen,toggleSearch,enterConversation,searchOpen,searchText,foundMessage,searchMessages,showMessage,noteInBubble,pauseAgent,startAgent,allChosen,toggleAllChosen,slash,composerKeydown,chosenList,isChosen,toggleChosen,groupChosen,toggleGroupChosen,terminalSide,chatHidden,terminalWidthCss,startTerminalResize,moveGroups,listRows,sections,listGroups,listSources,listSource,chooseSource,addGroup,editingGroup,startGroupRename,cancelGroupRename,finishGroupRename,deleteGroup,uploadAvatar,resetAvatar,autoSort:agentPreferences.autoSort,backgroundProgress,agentAvatar,presence,embedded,recoverOrphanedConversation,activity,progressInBubble,progressInBar,showViewSwitch,showTerminalSwitch,showSubnavbar,usageRows,olderBusy,pagingBack,atBottom,loadOlder,onMessagesScroll,onHistoryWheel,onHistoryTouchStart,onHistoryTouchMove,onHistoryTouchEnd,onHistoryTouchCancel,toLatest,
+return {messageSending,unreadOf,unreadLabel,unreadTotal,mixedList:computed(mixed),chosenByPresence,chooseByPresence,atStart,directOpening,toGroups,openingId,toList,cancelOpening,toggleGroupCollapse,openGroup,mention,pickMention,checklistOpen,checklistPanelVisible,checklistPopupOpen,toggleChecklist,typingBubble,searchPanelVisible,searchPopupOpen,toggleSearch,enterConversation,searchOpen,searchText,foundMessage,searchMessages,showMessage,noteInBubble,pauseAgent,startAgent,allChosen,toggleAllChosen,slash,composerKeydown,chosenList,isChosen,toggleChosen,groupChosen,toggleGroupChosen,terminalSide,chatHidden,terminalWidthCss,startTerminalResize,moveGroups,listRows,sections,listGroups,listSources,listSource,chooseSource,addGroup,editingGroup,startGroupRename,cancelGroupRename,finishGroupRename,deleteGroup,uploadAvatar,resetAvatar,autoSort:agentPreferences.autoSort,backgroundProgress,agentAvatar,presence,embedded,recoverOrphanedConversation,activity,progressInBubble,progressInBar,showViewSwitch,showTerminalSwitch,showSubnavbar,usageRows,olderBusy,pagingBack,atBottom,loadOlder,onMessagesScroll,onHistoryWheel,onHistoryTouchStart,onHistoryTouchMove,onHistoryTouchEnd,onHistoryTouchCancel,toLatest,
  inspectorOpen,inspectorVisible,showInspectorButton,profilePanelOpen,profilePanelVisible,openProfile,wideScreen,inspectId,inspectData,inspectBusy,inspectError,inspect,toggleInspector,clearInspection,agentLocked,agentOperationTitle,agentOperationSteps,agentOperationPercent,agentOperationError,newProfile,profileDraft,profileSaving,saveProfile,files,fileInput,pickFiles,dropFiles,pasteFiles,removeFile,chooseFiles,ct,generation,user,busy,error,theme,menuConversation,menuPoint,preferenceThreshold,editMode,orderBusy,toggleEdit,bulkBusy,pauseEveryAgent,startEveryAgent,restartEveryAgent,reorderChats,onChatsIn,terminalOpen,conversations,selected,detail,search,draft,scroll,newOpen,infoOpen,newTitle,memoryDraft,filtered,statusLabel,awaitingReply,canSend,conversationMenu,renameConversation,deleteConversation,savePreferences,wakingId,waking,wakeError,closeNew,openNewChat,create,select,bottom,send,enterSend,action,interrupting,canInterrupt,interruptTurn,pause,restart,handoff,importHistory,saveMemory,time,renderMarkdown,renderTypedMarkdown};
 }

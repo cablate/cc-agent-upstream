@@ -27,12 +27,12 @@ const admin = computed(() => w.user.value?.role === 'admin');
 const onScreen = () => props.visible && activeTab.value === 'view-chat' && !document.hidden;
 const items = computed(() => [
   ...w.conversations.value.flatMap(agent => {
-    const kind = agentListStatus(agent);
+    const kind = agentListStatus(agent, w.activity(agent), admin.value);
     if (kind !== 'error' && (kind !== 'waiting' || !admin.value)) return [];
     return [{ kind, id: agent.id, title: agent.title, href: agentUrl(agent.id), detail: kind === 'error' ? agent.lastError : agent.terminalPrompt?.title, agent: true }];
   }),
   ...(admin.value ? reports.value.filter(r => r.status === 'open').map(r => ({ kind: 'report', id: r.id, title: r.agentTitle || r.title || t('navAttention_report'), detail: r.description || r.tool || '', href: '/?access-report=' + encodeURIComponent(r.id) })) : []),
-  ...(admin.value ? schedules.value.filter(s => s.status === 'pending').map(s => ({ kind: 'schedule', id: s.id, title: s.title, detail: s.agentTitle || s.reason || '', href: '/?schedule=' + encodeURIComponent(s.id) })) : []),
+  ...(admin.value ? schedules.value.filter(s => s.status === 'pending').map(s => ({ kind: 'schedule', id: s.id, title: s.name, detail: s.agentTitle || s.reason || '', href: '/?schedule=' + encodeURIComponent(s.id) })) : []),
 ]);
 const groups = computed(() => ['error', 'waiting', 'report', 'schedule'].map(kind => ({ kind, items: items.value.filter(item => item.kind === kind) })).filter(group => group.items.length));
 let loading = false, disposed = false;
