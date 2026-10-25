@@ -435,7 +435,9 @@ function keepRows(local,fresh){const byId=new Map(fresh.map(c=>[c.id,c]));return
 async function refresh(){if(!user.value)return;const owner=user.value.id;const [list,groups]=await Promise.all([api('/conversations'),api('/agent-list').catch(()=>null)]);if(user.value?.id!==owner)return;if(!orderBusy.value){if(groups)agentPreferences.absorbList(groups);conversations.value=editMode.value?keepRows(conversations.value,list.conversations):list.conversations;listLoaded.value=true;}if(selected.value){const id=selected.value;const d=await api('/conversations/'+id+'?limit='+windowSize()+(conversationOnScreen()?'&viewing=1':''));if(user.value?.id===owner&&selected.value===id){
  const merged=mergeMessages(detail.value?.messages,d.messages||[]);
  const changed=merged.at(-1)?.id!==detail.value?.messages?.at(-1)?.id||merged.length!==detail.value?.messages?.length;
- detail.value={...d,messages:merged,hasOlder:merged.length>(d.messages||[]).length?(detail.value?.hasOlder??d.hasOlder):d.hasOlder};
+ const next={...d,messages:merged,hasOlder:merged.length>(d.messages||[]).length?(detail.value?.hasOlder??d.hasOlder):d.hasOlder};
+ // An answer equal to what is shown is not assigned: a new object renders every message's Markdown again, which drops frames on a phone at each poll.
+ if(JSON.stringify(next)!==JSON.stringify(detail.value))detail.value=next;
  if(changed&&atBottom.value)await bottom();}}}
 const HISTORY_GESTURE_BLOCKED='a,button,input,textarea,select,option,pre,code,[contenteditable]:not([contenteditable="false"]),.md-scroll,.terminal-pane,.terminal-content';
 const noVerticalOverflow=box=>box.scrollHeight<=box.clientHeight+1;

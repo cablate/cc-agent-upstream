@@ -80,7 +80,7 @@ import {inject,ref,computed} from "vue";import GlassDropdown from "../components
  // Work left running in the background (a subagent, a command) spins too, after
  // the turn that started it has ended.
  const status=c=>agentListStatus(c,w.activity(c),w.user.value?.role==='admin');
- const thinking=c=>uxFeatures.value.statusColors?status(c)==='busy':!!c.connected&&(c.phase==='busy'||c.background>0)&&!w.activity(c);
+ const thinking=c=>!!c.connected&&(c.phase==='busy'||c.background>0)&&!w.activity(c);
  const presenceLabel=c=>uxFeatures.value.statusColors?t('navStatus_'+status(c)):w.ct(w.activity(c)?'Agent 正在處理':thinking(c)?(c.phase==='busy'?'Agent 思考中':'Agent 背景工作中'):c.connected?'Agent 在線':'Agent 離線');
  const dotClass=c=>uxFeatures.value.statusColors?status(c):{online:c.connected&&!w.activity(c),working:!!w.activity(c)};
  const preview=c=>uxFeatures.value.statusColors?agentListPreview(c):'';
