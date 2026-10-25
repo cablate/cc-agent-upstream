@@ -8,7 +8,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { isWin } = require('./platform.cjs');
-const norm = (p) => path.normalize(p).replace(/(.)[\\/]+$/, '$1');
+// Windows separates folders with \ or /; elsewhere \ is an ordinary file-name character.
+const norm = (p) => path.normalize(p).replace(isWin ? /(.)[\\/]+$/ : /(.)\/+$/, '$1');
 
 // Only absolute PATH entries. An empty or relative entry means "the current
 // folder": with an agent's workspace as cwd, `claude` would run ./claude.
@@ -35,7 +36,7 @@ function resolveOnPath(name, value = process.env.PATH) {
 // top-level system folder. Those are never added (protecting ~ would make every
 // project ungrantable; /usr/bin is already outside what an agent can be given).
 function tooBroad(dir, home) {
-  const depth = dir.split(/[\\/]/).filter(Boolean).length;
+  const depth = dir.split(isWin ? /[\\/]/ : '/').filter(Boolean).length;
   // Compared as the disk knows them (canonical, below): a home reached through a link
   // (/var and /private/var) is still that home.
   const d = canonical(dir), h = canonical(home);
