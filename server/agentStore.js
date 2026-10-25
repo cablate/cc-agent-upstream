@@ -734,9 +734,9 @@ function addressAgent(c,address){
  const hits=state.conversations.filter(x=>x.owner===c.owner&&!x.archived&&x.mode==='claude'&&active(x)?.address===address);
  return hits.length===1?hits[0]:null;
 }
+function windowsPeer(c,r){return r.direction==='in'?addressAgent(c,r.from):state.conversations.find(x=>x.owner===c.owner&&!x.archived&&x.title===r.name)||addressAgent(c,r.name);}
 function relayPeer(c,r){
  const id=socketAgentId(r.from);
-function windowsPeer(c,r){return r.direction==='in'?addressAgent(c,r.from):state.conversations.find(x=>x.owner===c.owner&&!x.archived&&x.title===r.name)||addressAgent(c,r.name);}
  const peer=id?state.conversations.find(x=>x.owner===c.owner&&x.id.startsWith(id)):platform.isWin?windowsPeer(c,r):r.direction==='out'?state.conversations.find(x=>x.owner===c.owner&&!x.archived&&x.title===r.name):null;
  return peer?{peerId:peer.id,peerName:peer.title}:{peerId:null,peerName:platform.isWin&&isAddress(r.name)?'另一個 session':r.name||'另一個 session'};
 }
