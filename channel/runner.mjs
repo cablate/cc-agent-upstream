@@ -16,8 +16,8 @@ const tmuxSocket=config.tmuxSocket||tmuxSocketFor(controlDir);
 if(!/^cc-agent-[a-f0-9]{16}$/.test(tmuxSocket))throw new Error('Invalid instance tmux socket');
 // Its own session, by name: psmux numbers panes per session, so on Windows every agent's
 // TMUX_PANE is %1 and naming one picks whichever session psmux finds first.
-if(config.tmux!==undefined&&!/^execagent-[a-f0-9]{8}-g\d+$/.test(config.tmux))throw new Error('Invalid tmux session');
-const tmuxTarget=config.tmux||process.env.TMUX_PANE;
+if(platform.isWin&&config.tmux!==undefined&&!/^execagent-[a-f0-9]{8}-g\d+$/.test(config.tmux))throw new Error('Invalid tmux session');
+const tmuxTarget=platform.isWin?(config.tmux||process.env.TMUX_PANE):process.env.TMUX_PANE;
 // Each written to a new file and renamed into place, so a link to an earlier copy
 // never sees the next one.
 // The temporary file is made new in the control folder, which the agent cannot write, and
@@ -386,7 +386,7 @@ const startupDeadline=Date.now()+90000;
 const startup=setInterval(()=>{
  if(Date.now()>startupDeadline){clearInterval(startup);return;}
  try {const pane=tmuxTarget;if(!pane)return;
- const screen=execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-p','-t',pane],{encoding:'utf8',timeout:1000});
+ const screen=execFileSync('tmux',platform.isWin?['-L',tmuxSocket,'capture-pane','-p','-t',pane]:['-L',tmuxSocket,'capture-pane','-pt',pane],{encoding:'utf8',timeout:1000});
  const consent=startupConsent(screen,config.cwd);
  if(consent?.startsWith('workspace')&&reportedPrompt!=='workspace'){
   if(consent==='workspace-no')execFileSync('tmux',['-L',tmuxSocket,'send-keys','-t',pane,'Down']);
