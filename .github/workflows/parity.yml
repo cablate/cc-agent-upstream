@@ -32,6 +32,7 @@ jobs:
           PARITY_UP_ROOT: ${{ github.workspace }}/up
           PARITY_OURS_ROOT: ${{ github.workspace }}/ours
           PARITY_FULL_FILES: "1"
+          PARITY_TMP: /tmp
         run: node ours/.github/parity/probe.cjs
   build:
     strategy:
