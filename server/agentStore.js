@@ -958,6 +958,7 @@ function commandInGroup(owner,id,agentId,text){
  return groupView(x,true);
 }
 function searchGroup(owner,id,query){const x=groupFor(id,owner);return searchIn([{id:x.id,title:x.name,messages:x.messages}],query);}
+const TERMINAL_PROMPT_REMINDER_MS=10*60_000;
 const prompts=new Map();
 function syncTerminalPrompt(c){
  const g=active(c);if(!g.tmux)return;
@@ -970,8 +971,10 @@ function syncTerminalPrompt(c){
  const kept=prompts.get(c.id);
  if(kept?.key===prompt.key){Object.assign(kept,prompt);kept.seen++;}
  else prompts.set(c.id,{...prompt,session:g.sessionId,id:'prompt:'+c.id.slice(0,8)+':'+prompt.key+':'+Date.now(),since:new Date().toISOString(),seen:1});
- const t=prompts.get(c.id);
- if(t.seen===2&&!t.notified&&(g.phase==='busy'||busyElsewhere(c,g))){t.notified=true;t.notifyPending=true;t.notifyText=('終端機在等你選擇：'+(t.title||t.options[0].label)).slice(0,300);}
+ const t=prompts.get(c.id),label=t.title||t.options[0].label;
+ if(t.seen<2||!(g.phase==='busy'||busyElsewhere(c,g)))return;
+ if(!t.notified){t.notified=true;t.notifyPending=true;t.notifyText=('終端機在等你選擇：'+label).slice(0,300);}
+ if(!t.reminder&&Date.now()-Date.parse(t.since)>=TERMINAL_PROMPT_REMINDER_MS){t.notifyPending=false;t.reminder={id:t.id+':reminder',notifyPending:true,notifyText:('已等待 '+TERMINAL_PROMPT_REMINDER_MS/60_000+' 分鐘，終端機仍在等你選擇：'+label).slice(0,300)};}
 }
 // The owner's choice in that menu, only if the same menu is still on the screen.
 function chooseTerminalOption(c,data){
@@ -1829,7 +1832,7 @@ function messageTranscript(c,messageId){
  return found;
 }
 function pendingNotifications(){return [...groupStore.list().flatMap(x=>x.messages.filter(m=>m.notifyPending).map(m=>({conversation:{id:x.id,owner:x.owner,title:x.name,groupId:x.id},message:m}))),...pendingAgentNotifications()];}
-function pendingAgentNotifications(){return state.conversations.filter(c=>!c.archived).flatMap(c=>[...c.messages.filter(m=>(m.role==='assistant'||m.role==='relay')&&m.notifyPending),...(prompts.get(c.id)?.notifyPending?[prompts.get(c.id)]:[])].map(m=>({conversation:c,message:m})));}
+function pendingAgentNotifications(){return state.conversations.filter(c=>!c.archived).flatMap(c=>{const t=prompts.get(c.id);return [...c.messages.filter(m=>(m.role==='assistant'||m.role==='relay')&&m.notifyPending),...(t?.notifyPending?[t]:[]),...(t?.reminder?.notifyPending?[t.reminder]:[])].map(m=>({conversation:c,message:m}));});}
 const pendingReportNotifications=()=>reports.list().filter(r=>r.notifyPending);
 const markReportsNotified=ids=>{reports.updateMany(ids,{notifyPending:false});};
 // What the agent reads before a scheduled instruction, so it knows no one typed it
