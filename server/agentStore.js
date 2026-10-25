@@ -1366,7 +1366,7 @@ function mcpServerNames(c){
    const cwd=agentDirs.of(stateRoot,c,active(c)).work;
    for(const n of Object.keys(conf.mcpServers||{}))names.add(n);
    // Claude keys a project by its path, with either slash on Windows.
-   for(const key of new Set([cwd,cwd.replace(/\\/g,'/')]))for(const n of Object.keys(conf.projects?.[key]?.mcpServers||{}))names.add(n);
+   for(const key of platform.isWin?new Set([cwd,cwd.replace(/\\/g,'/')]):[cwd])for(const n of Object.keys(conf.projects?.[key]?.mcpServers||{}))names.add(n);
   }catch{}
   for(const n of transcript.connectors(stateRoot,c))names.add(n);
  }
