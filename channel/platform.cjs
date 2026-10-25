@@ -60,4 +60,28 @@ const shellPath = (p) => (isWin ? String(p).replace(/\\/g, '/') : String(p));
 // double-quoted instead, which a Windows path can never contain.
 const paneQuote = (s) => (isWin ? (s.includes("'") ? `"${s}"` : `'${s}'`) : "'" + s.replace(/'/g, "'\\''") + "'");
 
-module.exports = { isWin, SCOPED_UNSUPPORTED, homeDir, tmpBase, WIN_ENV, gitBashPath, shellPath, paneQuote };
+// Windows has no mode bits: whether an account other than this one, SYSTEM, the
+// Administrators group or TrustedInstaller owns a program, may change it, or may add or
+// remove files in its folder. Read by SID, since account names are translated; a rule
+// that only passes down to new files is not the file's own. If the ACL cannot be read,
+// the answer is yes. Windows only.
+const TRUSTED_SIDS = ['S-1-5-18', 'S-1-5-32-544', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'];
+// WriteData, AppendData, Delete, WRITE_DAC, WRITE_OWNER, GENERIC_ALL, GENERIC_WRITE; for
+// a folder AddFile and DeleteChild instead of AppendData and Delete.
+const FILE_CHANGE = 0x2 | 0x4 | 0x10000 | 0x40000 | 0x80000 | 0x10000000 | 0x40000000;
+const FOLDER_CHANGE = 0x2 | 0x40 | 0x40000 | 0x80000 | 0x10000000 | 0x40000000;
+const ACL_SCRIPT = "$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';[Console]::OutputEncoding=[Text.Encoding]::UTF8;$sid=[Security.Principal.SecurityIdentifier];"
+  + "@{me=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;items=@(($env:CCA_ACL_PATHS|ConvertFrom-Json)|ForEach-Object{$a=Get-Acl -LiteralPath $_;"
+  + "@{owner=$a.GetOwner($sid).Value;rules=@($a.GetAccessRules($true,$true,$sid)|ForEach-Object{@{sid=$_.IdentityReference.Value;rights=[int64]$_.FileSystemRights;allow=[string]$_.AccessControlType -eq 'Allow';inheritOnly=[bool]([int]$_.PropagationFlags -band 2)}})}})}|ConvertTo-Json -Depth 5 -Compress";
+function othersCanChange(file) {
+  try {
+    const out = require('node:child_process').execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(ACL_SCRIPT, 'utf16le').toString('base64')],
+      { encoding: 'utf8', timeout: 15000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, CCA_ACL_PATHS: JSON.stringify([file, path.dirname(file)]) } });
+    const { me, items } = JSON.parse(out);
+    const trusted = new Set([me, ...TRUSTED_SIDS]);
+    if (!me || items.length !== 2) return true;
+    return items.some(({ owner, rules }, i) => !trusted.has(owner) || rules.some((r) => r.allow && !r.inheritOnly && !trusted.has(r.sid) && (r.rights & (i ? FOLDER_CHANGE : FILE_CHANGE))));
+  } catch { return true; }
+}
+
+module.exports = { isWin, SCOPED_UNSUPPORTED, homeDir, tmpBase, WIN_ENV, gitBashPath, shellPath, paneQuote, othersCanChange };

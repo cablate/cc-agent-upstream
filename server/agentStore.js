@@ -1628,7 +1628,7 @@ function launcherProblem(exe){
  if(process.platform!=='win32'){
   const uid=process.getuid?.(),folder=fs.statSync(path.dirname(real));
   if((uid!==undefined&&![uid,0].includes(st.uid))||(st.mode&0o022)||(folder.mode&0o022))return '指令的執行檔必須屬於這個服務的帳號，而且其他人不能修改';
- }
+ }else if(platform.othersCanChange(real))return '指令的執行檔必須屬於這個服務的帳號，而且其他人不能修改';
  if(agentWritable(real))return '指令不能放在 agent 寫得到的地方';
  return null;
 }
