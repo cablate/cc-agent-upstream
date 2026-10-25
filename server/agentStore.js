@@ -1600,8 +1600,10 @@ function launcherProblem(exe){
  // path typed in another case would otherwise slip past the folders an agent can write.
  let real,st;try{real=fs.realpathSync.native(exe);st=fs.statSync(real);fs.accessSync(real,fs.constants.X_OK);}catch{return '找不到這個執行檔，或沒有執行權限';}
  if(!st.isFile())return '指令必須是一個執行檔';
- const uid=process.getuid?.(),folder=fs.statSync(path.dirname(real));
- if((uid!==undefined&&![uid,0].includes(st.uid))||(st.mode&0o022)||(folder.mode&0o022))return '指令的執行檔必須屬於這個服務的帳號，而且其他人不能修改';
+ if(process.platform!=='win32'){
+  const uid=process.getuid?.(),folder=fs.statSync(path.dirname(real));
+  if((uid!==undefined&&![uid,0].includes(st.uid))||(st.mode&0o022)||(folder.mode&0o022))return '指令的執行檔必須屬於這個服務的帳號，而且其他人不能修改';
+ }
  if(agentWritable(real))return '指令不能放在 agent 寫得到的地方';
  return null;
 }
@@ -1615,7 +1617,7 @@ function agentWritable(real){
 // A built-in check's arguments that name a file or folder may not point where an
 // agent writes: the tool would run what the agent put there.
 function checkArgumentProblem(arg){
- if(typeof arg!=='string'||!/^[~/.]/.test(arg))return null;
+ if(typeof arg!=='string'||!(/^[~/.]/.test(arg)||(process.platform==='win32'&&/^(?:[a-z]:|\\)/i.test(arg))))return null;
  // The native call returns the path as the volume has it: on a case-insensitive one an
  // argument typed in another case would otherwise slip past agentWritable (the program
  // itself was already checked this way).
