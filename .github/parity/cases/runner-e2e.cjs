@@ -34,7 +34,7 @@ function walk(dir, prefix, out) {
     const full = path.join(dir, name), rel = `${prefix}/${name}`, st = fs.lstatSync(full), mode = (st.mode & 0o777).toString(8);
     if (st.isSymbolicLink()) out[rel] = { type: 'link', to: fs.readlinkSync(full) };
     else if (st.isDirectory()) { out[rel] = { type: 'dir', mode }; walk(full, rel, out); }
-    else { const data = fs.readFileSync(full); out[rel] = { type: 'file', mode, ...(data.length < 4000 ? { text: data.toString('utf8') } : { sha: crypto.createHash('sha1').update(data).digest('hex').slice(0, 10) }) }; }
+    else { const data = fs.readFileSync(full); out[rel] = { type: 'file', mode, ...(data.length < 4000 || process.env.PARITY_FULL_FILES ? { text: data.toString('utf8') } : { sha: crypto.createHash('sha1').update(data).digest('hex').slice(0, 10) }) }; }
   }
   return out;
 }
