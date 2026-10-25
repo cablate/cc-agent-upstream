@@ -1658,7 +1658,7 @@ function relaunchMarked(){
  }
 }
 setInterval(relaunchMarked,30_000).unref();
-function getPreferences(owner){return {wrapUp:wrapUpSettings(ownerLanguage(owner)),archiveRetentionDays:archiveRetentionDays(),compactThreshold:state.agentSettings?.compactThreshold??5,terminalSwitch:state.agentSettings?.terminalSwitch===true,transcriptSwitch:state.agentSettings?.transcriptSwitch===true};}
+function getPreferences(owner){return {scopedAgents:!platform.isWin,wrapUp:wrapUpSettings(ownerLanguage(owner)),archiveRetentionDays:archiveRetentionDays(),compactThreshold:state.agentSettings?.compactThreshold??5,terminalSwitch:state.agentSettings?.terminalSwitch===true,transcriptSwitch:state.agentSettings?.transcriptSwitch===true};}
 function setPreferences(owner,{compactThreshold,terminalSwitch,transcriptSwitch,archiveRetentionDays:retention,wrapUp,...rest}={}){
  // Unsupported settings are refused, never ignored.
  if(Object.keys(rest).length)throw error('不支援的設定：'+Object.keys(rest).join(', '));

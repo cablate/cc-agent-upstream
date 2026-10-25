@@ -14,6 +14,7 @@ export const archiveRetentionDays = ref(null);
 // the minutes it sits idle first, and its words.
 export const wrapUp = ref({enabled: false, minutes: 10, text: '', custom: false});
 export const preferencesLoaded = ref(false);
+export const scopedAgents = ref(null);
 
 function absorb(preferences) {
   if (!preferences || typeof preferences !== 'object') return preferences;
@@ -22,6 +23,7 @@ function absorb(preferences) {
   transcriptSwitch.value = preferences.transcriptSwitch === true;
   if (preferences.wrapUp && typeof preferences.wrapUp === 'object') wrapUp.value = preferences.wrapUp;
   archiveRetentionDays.value = Number.isInteger(preferences.archiveRetentionDays) ? preferences.archiveRetentionDays : null;
+  scopedAgents.value = typeof preferences.scopedAgents === 'boolean' ? preferences.scopedAgents : null;
   preferencesLoaded.value = true;
   return preferences;
 }
