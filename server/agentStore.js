@@ -299,12 +299,25 @@ function listGroups(owner){return (state.agentSettings?.listGroups?.[owner]||[])
 function groupSource(owner,id){const c=state.conversations.find(c=>c.owner===owner&&!c.archived&&c.listGroup===id);return c?sourceFor(c):'native';}
 const UX_FEATURE_KEYS=["desktopRail","attentionPanel","statusColors","messageStatus","readingEnhancements","mobilePause"];
 function uxFeatures(owner){return Object.fromEntries(UX_FEATURE_KEYS.map(key=>[key,state.agentSettings?.listUxFeatures?.[owner]?.[key]===true]));}
-function listPreferences(owner){return {autoSort:autoSort(owner),groups:listGroups(owner),uxFeatures:uxFeatures(owner)};}
-function setListPreferences(owner,{autoSort:on,groups,uxFeatures:features,...rest}={}){
+const RAIL_ID=/^[A-Za-z0-9-]{1,64}$/;
+function ownsRailPin(owner,pin){return pin.kind==='agent'?state.conversations.some(c=>c.id===pin.id&&c.owner===owner&&!c.archived):groupStore.list().some(g=>g.id===pin.id&&g.owner===owner);}
+function railPins(owner){const seen=new Set();return (Array.isArray(state.agentSettings?.railPins?.[owner])?state.agentSettings.railPins[owner]:[]).filter(pin=>{if(!pin||!['agent','group'].includes(pin.kind)||typeof pin.id!=='string'||!RAIL_ID.test(pin.id)||!ownsRailPin(owner,pin)||seen.has(pin.kind+':'+pin.id))return false;seen.add(pin.kind+':'+pin.id);return true;}).slice(0,50).map(({kind,id})=>({kind,id}));}
+function listPreferences(owner){return {autoSort:autoSort(owner),groups:listGroups(owner),uxFeatures:uxFeatures(owner),railPins:railPins(owner)};}
+function setListPreferences(owner,{autoSort:on,groups,uxFeatures:features,railPins:pins,...rest}={}){
  if(Object.keys(rest).length)throw error('不支援的設定：'+Object.keys(rest).join(', '));
  if(features!==undefined&&(!features||typeof features!=='object'||Array.isArray(features)||Object.entries(features).some(([key,value])=>!UX_FEATURE_KEYS.includes(key)||typeof value!=='boolean')))throw error('介面設定必須是支援的開關');
- if(on===undefined&&groups===undefined&&features===undefined)throw error('沒有要更新的設定');
+ if(on===undefined&&groups===undefined&&features===undefined&&pins===undefined)throw error('沒有要更新的設定');
  if(on!==undefined&&typeof on!=='boolean')throw error('自動排序設定必須是開或關');
+ let nextPins;
+ if(pins!==undefined){
+  if(!Array.isArray(pins)||pins.length>50)throw error('快速切換最多釘選 50 個項目');
+  const seen=new Set();nextPins=[];
+  for(const pin of pins){
+   if(!pin||typeof pin!=='object'||Array.isArray(pin)||Object.keys(pin).some(key=>!['kind','id'].includes(key))||!['agent','group'].includes(pin.kind)||typeof pin.id!=='string'||!RAIL_ID.test(pin.id))throw error('釘選格式不正確');
+   if(!ownsRailPin(owner,pin))throw error('找不到這個釘選項目',404);
+   const key=pin.kind+':'+pin.id;if(!seen.has(key)){seen.add(key);nextPins.push({kind:pin.kind,id:pin.id});}
+  }
+ }
  let next;
  if(groups!==undefined){
   if(!Array.isArray(groups)||groups.length>MAX_GROUPS)throw error(`群組最多 ${MAX_GROUPS} 個`);
@@ -318,6 +331,7 @@ function setListPreferences(owner,{autoSort:on,groups,uxFeatures:features,...res
    seen.add(id);return {id,name,source:g.source||currentSource.get(id)||'native'};
   });
  }
+ if(nextPins)state.agentSettings={...state.agentSettings,railPins:{...state.agentSettings?.railPins,[owner]:nextPins}};
  // Turned off, the list stays exactly as it looked.
  if(on===false&&autoSort(owner))freezeOrder(owner,state.conversations.filter(c=>c.owner===owner&&!c.archived));
  if(features!==undefined)state.agentSettings={...state.agentSettings,listUxFeatures:{...state.agentSettings?.listUxFeatures,[owner]:{...uxFeatures(owner),...features}}};
@@ -1663,11 +1677,11 @@ function relaunchMarked(){
  }
 }
 setInterval(relaunchMarked,30_000).unref();
-function getPreferences(owner){return {scopedAgents:!platform.isWin,wrapUp:wrapUpSettings(ownerLanguage(owner)),archiveRetentionDays:archiveRetentionDays(),compactThreshold:state.agentSettings?.compactThreshold??5,terminalSwitch:state.agentSettings?.terminalSwitch===true,transcriptSwitch:state.agentSettings?.transcriptSwitch===true,terminalPromptReminder:state.agentSettings?.terminalPromptReminder===true};}
-function setPreferences(owner,{compactThreshold,terminalSwitch,transcriptSwitch,terminalPromptReminder,archiveRetentionDays:retention,wrapUp,...rest}={}){
+function getPreferences(owner){return {scopedAgents:!platform.isWin,wrapUp:wrapUpSettings(ownerLanguage(owner)),archiveRetentionDays:archiveRetentionDays(),compactThreshold:state.agentSettings?.compactThreshold??5,terminalSwitch:state.agentSettings?.terminalSwitch===true,terminalFirst:ownerIsActiveAdmin(owner)&&state.agentSettings?.terminalSwitch===true&&state.agentSettings?.terminalFirst===true,transcriptSwitch:state.agentSettings?.transcriptSwitch===true,terminalPromptReminder:state.agentSettings?.terminalPromptReminder===true};}
+function setPreferences(owner,{compactThreshold,terminalSwitch,terminalFirst,transcriptSwitch,terminalPromptReminder,archiveRetentionDays:retention,wrapUp,...rest}={}){
  // Unsupported settings are refused, never ignored.
  if(Object.keys(rest).length)throw error('不支援的設定：'+Object.keys(rest).join(', '));
- if(compactThreshold===undefined&&terminalSwitch===undefined&&transcriptSwitch===undefined&&retention===undefined&&wrapUp===undefined&&terminalPromptReminder===undefined)throw error('沒有要更新的設定');
+ if(compactThreshold===undefined&&terminalSwitch===undefined&&terminalFirst===undefined&&transcriptSwitch===undefined&&retention===undefined&&wrapUp===undefined&&terminalPromptReminder===undefined)throw error('沒有要更新的設定');
  // Every field is checked before any is saved: a request refused over one field leaves
  // all the others as they were, in memory and on disk.
  // The wrap-up check: on or off, the minutes an agent sits idle first, and its words
@@ -1683,6 +1697,7 @@ function setPreferences(owner,{compactThreshold,terminalSwitch,transcriptSwitch,
  if(retention!==undefined&&retention!==null&&(!Number.isInteger(retention)||retention<1||retention>RETENTION_MAX_DAYS))throw error(`保留天數必須是 1–${RETENTION_MAX_DAYS} 天，或不刪除`);
  // The chat/terminal switch is off unless an admin asks for it: the conversation page is the normal way in, and the
  // terminal is for looking at what an agent is doing.
+ if(terminalFirst!==undefined&&typeof terminalFirst!=='boolean')throw error('先顯示設定必須是開或關');
  if(terminalSwitch!==undefined&&typeof terminalSwitch!=='boolean')throw error('終端機切換設定必須是開或關');
  // Whether the conversation's navbar offers the Transcript column; off until an admin switches it on. Its routes stay admin-only either way.
  if(transcriptSwitch!==undefined&&typeof transcriptSwitch!=='boolean')throw error('Transcript 檢視設定必須是開或關');
@@ -1691,6 +1706,7 @@ function setPreferences(owner,{compactThreshold,terminalSwitch,transcriptSwitch,
  if(compactThreshold!==undefined&&(!Number.isInteger(compactThreshold)||compactThreshold<0||compactThreshold>10))throw error('Compact 門檻必須為 0–10 次（0 為不自動換代）');
  // All checked: saved together.
  if(terminalPromptReminder!==undefined)state.agentSettings={...state.agentSettings,terminalPromptReminder};
+ if(terminalFirst!==undefined)state.agentSettings={...state.agentSettings,terminalFirst};
  if(terminalSwitch!==undefined)state.agentSettings={...state.agentSettings,terminalSwitch};
  if(transcriptSwitch!==undefined)state.agentSettings={...state.agentSettings,transcriptSwitch};
  if(compactThreshold!==undefined){state.agentSettings={...state.agentSettings,compactThreshold};for(const c of state.conversations)if(!c.archived&&!c.thresholdOwn){c.threshold=compactThreshold;if(compactThreshold===0)c.pendingRotation=false;}}

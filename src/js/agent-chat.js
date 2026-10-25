@@ -118,8 +118,8 @@ async function everyAgent(kind){
 // Dialogs show plain text (js/safeDialog.js escapes it), a line break included.
 const chosenNames=()=>chosenList.value.map(c=>c.title).join('、');
 function pauseEveryAgent(){
- if(chosenList.value.length)f7.dialog.confirm(chosenNames()+'\n'+ct('執行中的回覆會中斷，聊天紀錄保留。'),ct('暫停選取的 Agent'),()=>everyAgent('stop'));
- else f7.dialog.confirm(ct('暫停所有 Agent？執行中的回覆會中斷，聊天紀錄保留。'),ct('全部暫停'),()=>everyAgent('stop'));
+ if(chosenList.value.length)f7.dialog.confirm(chosenNames()+'\n'+ct(agentPreferences.uxFeatures.value.mobilePause?'暫停會停下整個 Agent，聊天紀錄與 session 都會保留。之後要按「啟動」才會接回；只想停這一輪請用停止鈕或 Esc。':'執行中的回覆會中斷，聊天紀錄保留。'),ct('暫停選取的 Agent'),()=>everyAgent('stop'));
+ else f7.dialog.confirm(ct(agentPreferences.uxFeatures.value.mobilePause?'暫停會停下整個 Agent，聊天紀錄與 session 都會保留。之後要按「啟動」才會接回；只想停這一輪請用停止鈕或 Esc。':'暫停所有 Agent？執行中的回覆會中斷，聊天紀錄保留。'),ct('全部暫停'),()=>everyAgent('stop'));
 }
 function restartEveryAgent(){
  if(chosenList.value.length)f7.dialog.confirm(chosenNames()+'\n'+ct('執行中的回覆會中斷，聊天紀錄保留。'),ct('重啟選取的 Agent'),()=>everyAgent('restart'));
@@ -227,7 +227,7 @@ function updateAgent(d){conversations.value=conversations.value.map(c=>c.id===d.
 async function runAgentOperation(id,kind,body={}){
  if(operations.value[id])return;
  const owner=user.value?.id,op={kind,generation:(detail.value?.id===id?detail.value:conversations.value.find(c=>c.id===id))?.generation};
- operations.value[id]=op;delete operationErrors.value[id];if(selected.value===id){infoOpen.value=false;profilePanelOpen.value=false;terminalOpen.value=false;}
+ operations.value[id]=op;delete operationErrors.value[id];if(selected.value===id){infoOpen.value=false;profilePanelOpen.value=false;if(!(kind==='start'&&agentPreferences.terminalFirst.value&&showTerminalSwitch.value))terminalOpen.value=false;}
  // Identify the operation across Vue reactive proxy reads.
  const token=Symbol();op.token=token;
  const current=()=>!disposed&&user.value?.id===owner&&operations.value[id]?.token===token;
@@ -756,6 +756,7 @@ async function select(id,{direct=false}={}){
   if(run!==opening||user.value?.id!==owner)return;
   const router=f7.views?.get('#view-chat')?.router;if(!router)return;
   selected.value=id;detail.value=d;draft.value=drafts.get(id)||'';
+  if(showTerminalSwitch.value&&agentPreferences.terminalFirst.value){terminalOpen.value=true;chatHidden.value=wideScreen.value;}
   writeUrl(id);
   if(!(await toConversation(router,run,true)))return;
   await bottom();
@@ -865,13 +866,13 @@ function onEscape(event){
  event.preventDefault();interruptTurn();
 }
 // Copying code from the bubbles lives with the bubbles, in components/MessageList.vue.
-function pause(){f7.dialog.confirm(ct(agentPreferences.uxFeatures.value.mobilePause?"暫停會停下整個 Agent，之後要手動啟動；只想停這一輪請用停止鈕或 Esc。聊天紀錄仍會保留。":"暫停會中斷執行中的回覆。聊天紀錄仍會保留。"),ct("暫停執行"),()=>action('stop'));}
+function pause(){f7.dialog.confirm(ct(agentPreferences.uxFeatures.value.mobilePause?"暫停會停下整個 Agent，聊天紀錄與 session 都會保留。之後要按「啟動」才會接回；只想停這一輪請用停止鈕或 Esc。":"暫停會中斷執行中的回覆。聊天紀錄仍會保留。"),ct(agentPreferences.uxFeatures.value.mobilePause?"暫停 Agent":"暫停執行"),()=>action('stop'));}
 // A pause and a start, so it also ends a turn still running; the session and chat are kept.
 function restart(){f7.dialog.confirm(ct("重啟會中斷執行中的回覆，並接回同一個 session。聊天紀錄仍會保留。"),ct("重啟"),async()=>{if(await action('stop'))await action('start');});}
 // From a row's swipe on the Agents list, for that agent rather than the open one.
 // Pausing one that is answering asks first, as the pause in its profile does.
 async function listAgentAction(c,kind){await attempt(async()=>{await api('/conversations/'+c.id+'/'+kind,{method:'POST',body:'{}'});await refresh();});}
-function pauseAgent(c){const go=()=>listAgentAction(c,'stop');if(c.phase==='busy')f7.dialog.confirm(ct("暫停會中斷執行中的回覆。聊天紀錄仍會保留。"),ct("暫停執行")+'「'+c.title+'」',go);else go();}
+function pauseAgent(c){const enhanced=agentPreferences.uxFeatures.value.mobilePause,go=()=>listAgentAction(c,'stop');if(enhanced||c.phase==='busy')f7.dialog.confirm(ct(enhanced?"暫停會停下整個 Agent，聊天紀錄與 session 都會保留。之後要按「啟動」才會接回；只想停這一輪請用停止鈕或 Esc。":"暫停會中斷執行中的回覆。聊天紀錄仍會保留。"),ct(enhanced?"暫停 Agent":"暫停執行")+'「'+c.title+'」',go);else go();}
 function startAgent(c){return listAgentAction(c,'start');}
 function handoff(){f7.dialog.confirm(ct("保存記憶與近期討論，接續到新的 Claude session？"),ct("接續對話"),()=>action('rotate'));}
 // Bring the turns that happened outside this page (the owner's terminal, a
@@ -994,6 +995,6 @@ onMounted(()=>{
  poll=setInterval(tick,1200);});
 onUnmounted(()=>{boxWatch?.disconnect();document.removeEventListener('keydown',onEscape);document.removeEventListener('keydown',onFind);window.removeEventListener('popstate',restoreUrl);notifications.stop();document.removeEventListener('visibilitychange',onAppVisible);window.removeEventListener('focus',onAppFocus);unwatchWidth?.();disposed=true;cancelHistoryPaging();operations.value={};clearInterval(poll);live?.close();live=null;wakeRun++;});
 
-return {messageSending,unreadOf,unreadLabel,unreadTotal,mixedList:computed(mixed),chosenByPresence,chooseByPresence,atStart,directOpening,toGroups,openingId,toList,cancelOpening,toggleGroupCollapse,openGroup,mention,pickMention,checklistOpen,checklistPanelVisible,checklistPopupOpen,toggleChecklist,typingBubble,searchPanelVisible,searchPopupOpen,toggleSearch,enterConversation,searchOpen,searchText,foundMessage,searchMessages,showMessage,noteInBubble,pauseAgent,startAgent,allChosen,toggleAllChosen,slash,composerKeydown,chosenList,isChosen,toggleChosen,groupChosen,toggleGroupChosen,terminalSide,chatHidden,terminalWidthCss,startTerminalResize,moveGroups,listRows,sections,listGroups,listSources,listSource,chooseSource,addGroup,editingGroup,startGroupRename,cancelGroupRename,finishGroupRename,deleteGroup,uploadAvatar,resetAvatar,autoSort:agentPreferences.autoSort,backgroundProgress,agentAvatar,presence,embedded,recoverOrphanedConversation,activity,progressInBubble,progressInBar,showViewSwitch,showTerminalSwitch,showSubnavbar,usageRows,olderBusy,pagingBack,atBottom,loadOlder,onMessagesScroll,onHistoryWheel,onHistoryTouchStart,onHistoryTouchMove,onHistoryTouchEnd,onHistoryTouchCancel,toLatest,
+return {operationKind:computed(()=>operations.value[selected.value]?.kind),messageSending,unreadOf,unreadLabel,unreadTotal,mixedList:computed(mixed),chosenByPresence,chooseByPresence,atStart,directOpening,toGroups,openingId,toList,cancelOpening,toggleGroupCollapse,openGroup,mention,pickMention,checklistOpen,checklistPanelVisible,checklistPopupOpen,toggleChecklist,typingBubble,searchPanelVisible,searchPopupOpen,toggleSearch,enterConversation,searchOpen,searchText,foundMessage,searchMessages,showMessage,noteInBubble,pauseAgent,startAgent,allChosen,toggleAllChosen,slash,composerKeydown,chosenList,isChosen,toggleChosen,groupChosen,toggleGroupChosen,terminalSide,chatHidden,terminalWidthCss,startTerminalResize,moveGroups,listRows,sections,listGroups,listSources,listSource,chooseSource,addGroup,editingGroup,startGroupRename,cancelGroupRename,finishGroupRename,deleteGroup,uploadAvatar,resetAvatar,autoSort:agentPreferences.autoSort,backgroundProgress,agentAvatar,presence,embedded,recoverOrphanedConversation,activity,progressInBubble,progressInBar,showViewSwitch,showTerminalSwitch,showSubnavbar,usageRows,olderBusy,pagingBack,atBottom,loadOlder,onMessagesScroll,onHistoryWheel,onHistoryTouchStart,onHistoryTouchMove,onHistoryTouchEnd,onHistoryTouchCancel,toLatest,
  inspectorOpen,inspectorVisible,showInspectorButton,profilePanelOpen,profilePanelVisible,openProfile,wideScreen,inspectId,inspectData,inspectBusy,inspectError,inspect,toggleInspector,clearInspection,agentLocked,agentOperationTitle,agentOperationSteps,agentOperationPercent,agentOperationError,newProfile,profileDraft,profileSaving,saveProfile,files,fileInput,pickFiles,dropFiles,pasteFiles,removeFile,chooseFiles,ct,generation,user,busy,error,theme,menuConversation,menuPoint,preferenceThreshold,editMode,orderBusy,toggleEdit,bulkBusy,pauseEveryAgent,startEveryAgent,restartEveryAgent,reorderChats,onChatsIn,terminalOpen,conversations,selected,detail,search,draft,scroll,newOpen,infoOpen,newTitle,memoryDraft,filtered,statusLabel,awaitingReply,canSend,conversationMenu,renameConversation,deleteConversation,savePreferences,wakingId,waking,wakeError,closeNew,openNewChat,create,select,bottom,send,enterSend,action,interrupting,canInterrupt,interruptTurn,pause,restart,handoff,importHistory,saveMemory,time,renderMarkdown,renderTypedMarkdown};
 }

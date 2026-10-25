@@ -6,7 +6,8 @@
     <f7-block-title>{{ t('sectionAgent') }}</f7-block-title>
     <f7-list inset class="cc-settings-list">
       <f7-list-item :title="ct('Agents 自動排序')" class="auto-sort"><template #media><f7-icon f7="arrow_up_arrow_down"/></template><template #after><label class="toggle"><input type="checkbox" :aria-label="ct('Agents 自動排序')" :checked="autoSort" @change="saveAutoSort($event.target.checked)"/><span class="toggle-icon"></span></label></template></f7-list-item>
-      <f7-list-item v-for="key in uxFeatureKeys" :key="key" :title="t('uxSetting_'+key)" :footer="t('uxSetting_'+key+'Hint')" :class="'ux-setting-'+key"><template #media><f7-icon f7="slider_horizontal_3"/></template><template #after><label class="toggle"><input type="checkbox" :aria-label="t('uxSetting_'+key)" :checked="uxFeatures[key]" @change="saveUxFeature(key,$event.target.checked)"/><span class="toggle-icon"></span></label></template></f7-list-item>
+      <f7-list-item link no-chevron class="ux-settings-fold" :title="t('uxEnhancements')" :after="t('uxEnabledCount',{count:uxFeatureKeys.filter(key=>uxFeatures[key]).length,total:uxFeatureKeys.length})" :aria-expanded="String(uxExpanded)" @click.prevent="toggleUxExpanded"><template #media><f7-icon :f7="uxExpanded?'chevron_down':'chevron_right'"/></template></f7-list-item>
+      <f7-list-item v-for="key in uxExpanded?uxFeatureKeys:[]" :key="key" :title="t('uxSetting_'+key)" :footer="t('uxSetting_'+key+'Hint')" :class="'ux-setting-'+key"><template #media><f7-icon f7="slider_horizontal_3"/></template><template #after><label class="toggle"><input type="checkbox" :aria-label="t('uxSetting_'+key)" :checked="uxFeatures[key]" @change="saveUxFeature(key,$event.target.checked)"/><span class="toggle-icon"></span></label></template></f7-list-item>
     </f7-list>
 
     <f7-block-title>{{ t('sectionSystem') }}</f7-block-title>
@@ -104,6 +105,9 @@ import { fetchLatestBuildId, hasNewVersion } from '../versionCheck.js';
 import GlassDropdown from '../components/GlassDropdown.vue';
 
 import {autoSort,uxFeatures,uxFeatureKeys,loadListPreferences,saveListPreferences} from '../js/agentPreferences.js';
+const UX_EXPANDED_KEY='cc-agent-ux-expanded';
+const uxExpanded=ref((()=>{try{return localStorage.getItem(UX_EXPANDED_KEY)==='1';}catch{return false;}})());
+function toggleUxExpanded(){uxExpanded.value=!uxExpanded.value;try{localStorage.setItem(UX_EXPANDED_KEY,uxExpanded.value?'1':'0');}catch{}}
 onMounted(async()=>{try{await loadListPreferences();}catch{}});
 // Whether one's own Agents list puts the latest conversation first; off by default.
 async function saveAutoSort(on){

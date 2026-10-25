@@ -6,7 +6,7 @@
        in a navbar. Start brings up an agent that is
        not running; restart pauses and starts one that is, a turn in progress included. -->
   <div class="profile-actions" role="toolbar" :aria-label="ct('對話操作')">
-   <a v-for="b in actionButtons" :key="b.key" href="#" class="profile-action" :class="[b.cls,{disabled:b.off}]" :title="b.label" :aria-label="b.label" :aria-disabled="b.off?'true':null" @click.prevent="!b.off&&b.run()"><f7-icon :f7="b.icon"/><span>{{b.short}}</span></a>
+   <a v-for="b in actionButtons" :key="b.key" href="#" class="profile-action" :class="[b.cls,{disabled:b.off,'pause-label':b.key==='pause'&&uxFeatures.mobilePause}]" :title="b.label" :aria-label="b.label" :aria-disabled="b.off?'true':null" @click.prevent="!b.off&&b.run()"><f7-icon :f7="b.icon"/><span>{{b.short}}</span></a>
   </div>
   <!-- The agent's own picture, an admin's choice. -->
   <template v-if="user?.role==='admin'">
@@ -53,6 +53,8 @@ import GlassDropdown from "./GlassDropdown.vue";
 import {inject,computed,ref} from "vue";
 import {f7} from "framework7-vue";
 import {compactCount,compactPolicy} from "../js/agent-i18n.js";
+import {canStartAgent} from "../js/agentStart.js";
+import {uxFeatures} from "../js/agentPreferences.js";
 import {compactThreshold,wrapUp} from "../js/agentPreferences.js";
 import {defaultAvatar,avatarShape} from "../js/avatarShape.js";
 // `title` on a list item is its label, so a row's hover hint is set on its element.
@@ -61,9 +63,9 @@ export default {components:{AgentProfileFields,AgentDiagnostics,GlassDropdown},d
  let engineToast=null;
  const thresholdOpen=ref(false),thresholdPoint=ref({clientX:0,clientY:0});
  const following=()=>w.ct('跟隨管理設定')+'（'+compactPolicy(compactThreshold.value)+'）';
- const canStart=computed(()=>["stopped","error"].includes(w.detail.value?.phase)||!w.detail.value?.connected&&!["starting","busy","handing-off"].includes(w.detail.value?.phase));
+ const canStart=computed(()=>canStartAgent(w.detail.value));
  const canRestart=computed(()=>!!w.detail.value&&!["stopped","error","starting","handing-off"].includes(w.detail.value.phase));
- return {...w,defaultAvatar,avatarShape,
+ return {...w,defaultAvatar,avatarShape,uxFeatures,
   thresholdOpen,thresholdPoint,
   thresholdLabel:computed(()=>w.detail.value?.thresholdOwn?compactPolicy(w.detail.value.threshold):following()),
   thresholdItems:computed(()=>[{value:'follow',label:following()},...Array.from({length:10},(_,i)=>({value:String(i+1),label:compactCount(i+1)})),{value:'0',label:compactPolicy(0)}]),
@@ -88,7 +90,7 @@ export default {components:{AgentProfileFields,AgentDiagnostics,GlassDropdown},d
   actionButtons:computed(()=>{const d=w.detail.value;if(!d)return [];const stopped=["stopped","error"].includes(d.phase);return [
    {key:'start',short:w.ct('啟動'),cls:'agent-start',icon:'play_circle',label:w.ct('啟動'),off:!canStart.value,run:()=>w.action('start')},
    {key:'restart',short:w.ct('重啟'),cls:'agent-restart',icon:'arrow_clockwise_circle',label:w.ct('重啟'),off:!canRestart.value,run:()=>w.restart()},
-   {key:'pause',short:w.ct('暫停'),icon:'pause_circle',label:w.ct('暫停執行'),off:stopped,run:()=>w.pause()},
+   {key:'pause',short:w.ct(uxFeatures.value.mobilePause?'暫停 Agent':'暫停'),icon:'pause_circle',label:w.ct(uxFeatures.value.mobilePause?'暫停 Agent':'暫停執行'),off:stopped,run:()=>w.pause()},
    {key:'handoff',short:w.ct('接續'),icon:'arrow_2_circlepath',label:w.ct('接續到新 session'),off:d.phase==='busy',run:()=>w.handoff()},
    ...(d.mode==='claude'?[{key:'import',short:w.ct('讀取'),icon:'arrow_down_doc',label:w.ct('讀取 session 既有對話'),off:false,run:()=>w.importHistory()},
     {key:'compact',short:w.ct('壓縮'),icon:'arrow_down_right_arrow_up_left',label:w.ct('執行一次 compact'),off:d.phase!=='ready',run:()=>w.action('compact')}]:[]),
@@ -109,5 +111,6 @@ export default {components:{AgentProfileFields,AgentDiagnostics,GlassDropdown},d
 .profile-actions {display:flex;justify-content:center;gap:8px;margin:14px var(--cc-space-5) 16px;padding:0 16px;}
 .profile-action {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:1 1 0;min-width:0;max-width:72px;height:54px;border-radius:16px;background:rgba(120, 120, 128, .24);color:var(--f7-list-item-title-text-color, var(--f7-text-color));font-size:12px;line-height:1;white-space:nowrap;}
 .profile-action .icon {font-size:22px;}
+.profile-action.pause-label span {max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:center;line-height:1.15;}
 .profile-action.disabled {opacity:.3;pointer-events:none;}
 </style>
