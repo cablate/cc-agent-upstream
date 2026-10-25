@@ -1646,8 +1646,9 @@ function checkArgumentProblem(arg){
  // The native call returns the path as the volume has it: on a case-insensitive one an
  // argument typed in another case would otherwise slip past agentWritable (the program
  // itself was already checked this way).
- const home=require('node:os').homedir();
- let real;try{real=fs.realpathSync.native(path.resolve(home,arg.replace(/^~(?=$|\/)/,home)));}catch{return null;}
+ // An absolute argument is looked up as written: POSIX resolves a link before a following .., path.resolve folds it first.
+ const home=require('node:os').homedir(),target=arg.replace(/^~(?=$|\/)/,home);
+ let real;try{real=fs.realpathSync.native(platform.isWin||!path.isAbsolute(target)?path.resolve(home,target):target);}catch{return null;}
  return agentWritable(real)?'參數 '+arg+' 指向 agent 寫得到的地方':null;
 }
 // One agent's own compact policy, or null to follow the setting again; the setting no longer overwrites an agent that has its
