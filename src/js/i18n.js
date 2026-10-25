@@ -21,6 +21,22 @@ export function setLang(l, { persist = true } = {}) {
 
 const dict = {
   en: {
+    // ux-nav
+    navRail: 'Quick switch',
+    navShortcut: 'Previous / next agent: Ctrl+Alt+↑ / ↓',
+    navStatus_error: 'Error',
+    navStatus_waiting: 'Waiting for your choice',
+    navStatus_busy: 'Working',
+    navStatus_online: 'Online',
+    navStatus_paused: 'Paused',
+    navStatus_offline: 'Offline',
+    navAttention: 'Needs your attention',
+    navAttention_error: 'Agents with errors',
+    navAttention_waiting: 'Terminal choices',
+    navAttention_report: 'Open scope reports',
+    navAttention_schedule: 'Schedules awaiting approval',
+    navAttentionRefreshFailed: 'Could not refresh reports and schedules. Try again when the connection returns.',
+    // /ux-nav
     back: '← Back',
     tabChat: 'Agents',
     tabGroups: 'Groups',
@@ -122,6 +138,22 @@ const dict = {
     tooManyAttempts: 'Too many attempts. Please try again later.',
   },
   'zh-TW': {
+    // ux-nav
+    navRail: '快速切換',
+    navShortcut: '上一個／下一個 Agent：Ctrl+Alt+↑／↓',
+    navStatus_error: '出錯',
+    navStatus_waiting: '等你選擇',
+    navStatus_busy: '處理中',
+    navStatus_online: '在線',
+    navStatus_paused: '已暫停',
+    navStatus_offline: '離線',
+    navAttention: '需要你處理',
+    navAttention_error: '出錯的 Agent',
+    navAttention_waiting: '終端機等你選擇',
+    navAttention_report: '未處理的範圍報告',
+    navAttention_schedule: '待核准排程',
+    navAttentionRefreshFailed: '報告與排程暫時無法更新，連線恢復後會再試。',
+    // /ux-nav
     back: '← 上一步',
     tabChat: 'Agents',
     tabGroups: '群組',
