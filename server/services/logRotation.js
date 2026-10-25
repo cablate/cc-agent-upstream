@@ -20,7 +20,6 @@ const RETENTION_DAYS = 365;
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Windows has no O_NOFOLLOW. There the lstat-then-fstat identity checks below stand on
 // their own, as in privateFiles.js; making a link there needs admin rights or Developer Mode.
-// Elsewhere a missing flag still refuses.
 const { isWin } = require('../../channel/platform.cjs');
 const FIRST_LINE_CAP = 64 * 1024;
 // The setting that moves the audit log (services/audit.js) is named by the product.
