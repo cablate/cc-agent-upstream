@@ -6,7 +6,7 @@
         <div v-if="row.kind !== 'agent'" class="rail-group">{{ row.name }}</div>
         <a v-else :href="agentUrl(row.id)" class="rail-agent external" :class="{ selected: current === row.id }" :data-id="row.id" :aria-current="current === row.id ? 'page' : undefined" @click.prevent="w.select(row.id)">
           <span class="rail-avatar"><img :src="row.agent.avatar || defaultAvatar(row.agent)" alt=""/><i class="rail-dot" :class="status(row.agent)" :title="t('navStatus_' + status(row.agent))"></i></span>
-          <span class="rail-copy"><span class="rail-name">{{ row.agent.title }}</span><span class="rail-status" :class="status(row.agent)">{{ t('navStatus_' + status(row.agent)) }}</span></span>
+          <span class="rail-copy"><span class="rail-name">{{ row.agent.title }}</span><span class="rail-status">{{ t('navStatus_' + status(row.agent)) }}</span></span>
           <span v-if="w.unreadOf(row.agent)" class="badge color-red">{{ w.unreadLabel(w.unreadOf(row.agent)) }}</span>
         </a>
       </template>
@@ -51,7 +51,7 @@ onUnmounted(() => document.removeEventListener('keydown', onSwitch));
 .rail-heading span {font-size:10px;font-weight:400;}
 .rail-list {min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:8px;}
 .rail-group {padding:10px 10px 4px;font-size:11px;color:var(--cc-color-text-secondary);overflow-wrap:anywhere;}
-.rail-agent {display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;color:var(--cc-color-text);}
+.rail-agent {display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:12px;color:var(--cc-color-text);}
 .rail-agent:hover {background:color-mix(in srgb,currentColor 6%,transparent);}
 .rail-agent.selected {background:color-mix(in srgb,currentColor 12%,transparent);box-shadow:inset 3px 0 var(--cc-color-accent,#d97757);}
 .rail-agent:focus-visible {outline:2px solid var(--cc-color-accent,#d97757);outline-offset:-2px;}
@@ -64,7 +64,7 @@ onUnmounted(() => document.removeEventListener('keydown', onSwitch));
 .rail-dot.error {background:#ff453a;}
 .rail-copy {display:flex;flex:1;min-width:0;flex-direction:column;gap:2px;}
 .rail-name {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;}
-.rail-status {font-size:10px;color:var(--cc-color-text-secondary);}
-.rail-status.error {color:#ff453a;}.rail-status.waiting {color:#ff9f0a;}
+/* One line per agent: the dot shows the status; the words stay for screen readers. */
+.rail-status {position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
 .badge {flex-shrink:0;font-size:10px;min-width:17px;height:17px;}
 </style>

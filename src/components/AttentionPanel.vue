@@ -1,15 +1,12 @@
 <template>
   <section v-if="items.length || refreshError" class="attention-panel" aria-labelledby="attention-title">
-    <h2 id="attention-title">{{ t('navAttention') }}<span v-if="items.length" class="attention-count">{{ items.length }}</span></h2>
+    <h2 id="attention-title">{{ t('navAttention') }}</h2>
+    <!-- One chip per kind, opening its first item: one alone is named, more are counted. -->
+    <a v-for="group in groups" :key="group.kind" :href="group.items[0].href" class="attention-chip external" :data-kind="group.kind" :title="group.items.map(item => item.title + (item.detail ? ' · ' + item.detail : '')).join('\n')" @click="open($event, group.items[0])">
+      <i class="attention-dot" :class="group.kind" aria-hidden="true"></i>{{ t('navAttention_' + group.kind) }}
+      <span class="attention-chip-more">{{ group.items.length === 1 ? group.items[0].title : group.items.length }}</span>
+    </a>
     <p v-if="refreshError" class="attention-error" role="status">{{ t('navAttentionRefreshFailed') }}</p>
-    <div v-for="group in groups" :key="group.kind" class="attention-group">
-      <h3>{{ t('navAttention_' + group.kind) }}<span>{{ group.items.length }}</span></h3>
-      <a v-for="item in group.items" :key="item.id" :href="item.href" class="attention-item external" :data-kind="item.kind" @click="open($event, item)">
-        <i class="attention-dot" :class="item.kind" aria-hidden="true"></i>
-        <span class="attention-copy"><strong>{{ item.title }}</strong><span v-if="item.detail">{{ item.detail }}</span></span>
-        <i class="icon f7-icons attention-chevron" aria-hidden="true">chevron_right</i>
-      </a>
-    </div>
   </section>
 </template>
 
@@ -73,19 +70,13 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.attention-panel {margin:24px 16px;padding:18px 16px 8px;border-radius:var(--cc-radius-card,20px);background:var(--cc-surface-card);box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 12%,transparent);}
-.attention-panel h2 {display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:18px;font-weight:600;}
-.attention-count {font-size:12px;padding:2px 7px;border-radius:12px;background:color-mix(in srgb,currentColor 12%,transparent);color:var(--cc-color-text-secondary);}
-.attention-group {margin-bottom:12px;}
-.attention-group h3 {display:flex;gap:7px;margin:10px 0 2px;font-size:12px;font-weight:500;color:var(--cc-color-text-secondary);}
-.attention-group h3 span {font-variant-numeric:tabular-nums;}
-.attention-item {display:flex;align-items:center;gap:10px;min-height:48px;padding:8px 0;color:var(--cc-color-text);}
-.attention-item:focus-visible {outline:2px solid var(--cc-color-accent,#d97757);outline-offset:3px;border-radius:6px;}
+.attention-panel {display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:16px 16px 4px;}
+.attention-panel h2 {margin:0 4px 0 0;font-size:13px;font-weight:600;color:var(--cc-color-text-secondary);}
+.attention-chip {display:inline-flex;align-items:center;gap:6px;max-width:100%;min-height:36px;box-sizing:border-box;padding:4px 12px;border-radius:18px;background:var(--cc-surface-card);box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 12%,transparent);color:var(--cc-color-text);font-size:13px;}
+.attention-chip:focus-visible {outline:2px solid var(--cc-color-accent,#d97757);outline-offset:2px;}
+.attention-chip-more {min-width:0;max-width:12em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--cc-color-text-secondary);font-variant-numeric:tabular-nums;}
 .attention-dot {flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:#ff9f0a;}
 .attention-dot.error {background:#ff453a;}.attention-dot.report {background:#bf5af2;}.attention-dot.schedule {background:#5ac8fa;}
-.attention-copy {display:flex;flex:1;min-width:0;flex-direction:column;gap:3px;overflow-wrap:anywhere;}
-.attention-copy strong {font-size:14px;font-weight:500;}.attention-copy>span {font-size:12px;color:var(--cc-color-text-secondary);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}
-.attention-chevron {font-size:12px;color:var(--cc-color-text-secondary);}
-.attention-error {font-size:12px;color:var(--cc-color-text-secondary);}
+.attention-error {flex-basis:100%;margin:0;font-size:12px;color:var(--cc-color-text-secondary);}
 @media(min-width:1024px){.attention-panel{max-width:828px;box-sizing:border-box;margin-left:auto;margin-right:auto;}}
 </style>
