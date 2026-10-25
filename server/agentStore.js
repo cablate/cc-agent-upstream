@@ -611,7 +611,7 @@ function interrupt(c) {
  save(c);
 }
 function stop(c) {
- const g=active(c);
+ const g=active(c);prompts.delete(c.id);
  if(c.mode==='claude') {try{execFileSync('tmux',['-L',tmuxSocket,'kill-session','-t',g.tmux],{timeout:5000,stdio:'ignore'});}catch{}}
  permissions.cancel(g);g.compacting=false;g.manualCompact=false;g.phase='stopped';g.ready=false;g.heartbeat=0;g.token=randomBytes(32).toString('hex');
  // Paused, deleted or restarted: a wake waiting for a usage limit is dropped, so a
@@ -749,7 +749,7 @@ function syncRelays(c,now=Date.now()){
 function syncAllRelays(){try{deliverGroups();}catch(e){console.error('groups:',e.message);}const alive=Date.now()-15000;for(const c of state.conversations)if(!c.archived&&c.mode==='claude'&&active(c).heartbeat>alive){try{syncRelays(c);}catch(e){console.error('relays '+c.id+':',e.message);}try{syncTerminalPrompt(c);}catch{}}}
 // A menu waiting in the agent's terminal (terminalPrompt.js), kept in memory like
 // the heartbeat. Seen twice in a row, one the agent's turn is waiting on is pushed
-// to the owner once; a menu the owner opened from the chat is not.
+// to the owner, then reminded once after 10 minutes; an owner-opened menu is not.
 // Group chats (groups.js). The owner's message
 // goes to the members it names with @, or to the lead; each gets it in its own
 // conversation, marked, and its reply is shown in the group as well. What members
@@ -972,8 +972,8 @@ function syncTerminalPrompt(c){
  if(kept?.key===prompt.key){Object.assign(kept,prompt);kept.seen++;}
  else prompts.set(c.id,{...prompt,session:g.sessionId,id:'prompt:'+c.id.slice(0,8)+':'+prompt.key+':'+Date.now(),since:new Date().toISOString(),seen:1});
  const t=prompts.get(c.id),label=t.title||t.options[0].label;
- if(t.seen<2||!(g.phase==='busy'||busyElsewhere(c,g)))return;
- if(!t.notified){t.notified=true;t.notifyPending=true;t.notifyText=('終端機在等你選擇：'+label).slice(0,300);}
+ if(t.seen===2){if(g.phase==='busy'||busyElsewhere(c,g)){t.notified=true;t.notifyPending=true;t.notifyText=('終端機在等你選擇：'+label).slice(0,300);}else t.ownerOpened=true;}
+ if(!t.notified)return;
  if(!t.reminder&&Date.now()-Date.parse(t.since)>=TERMINAL_PROMPT_REMINDER_MS){t.notifyPending=false;t.reminder={id:t.id+':reminder',notifyPending:true,notifyText:('已等待 '+TERMINAL_PROMPT_REMINDER_MS/60_000+' 分鐘，終端機仍在等你選擇：'+label).slice(0,300)};}
 }
 // The owner's choice in that menu, only if the same menu is still on the screen.
@@ -1832,7 +1832,7 @@ function messageTranscript(c,messageId){
  return found;
 }
 function pendingNotifications(){return [...groupStore.list().flatMap(x=>x.messages.filter(m=>m.notifyPending).map(m=>({conversation:{id:x.id,owner:x.owner,title:x.name,groupId:x.id},message:m}))),...pendingAgentNotifications()];}
-function pendingAgentNotifications(){return state.conversations.filter(c=>!c.archived).flatMap(c=>{const t=prompts.get(c.id);return [...c.messages.filter(m=>(m.role==='assistant'||m.role==='relay')&&m.notifyPending),...(t?.notifyPending?[t]:[]),...(t?.reminder?.notifyPending?[t.reminder]:[])].map(m=>({conversation:c,message:m}));});}
+function pendingAgentNotifications(){return state.conversations.filter(c=>!c.archived).flatMap(c=>{const t=prompts.get(c.id),p=alive(c)&&t?.session===active(c).sessionId?t:null;return [...c.messages.filter(m=>(m.role==='assistant'||m.role==='relay')&&m.notifyPending),...(p?.notifyPending?[p]:[]),...(p?.reminder?.notifyPending?[p.reminder]:[])].map(m=>({conversation:c,message:m}));});}
 const pendingReportNotifications=()=>reports.list().filter(r=>r.notifyPending);
 const markReportsNotified=ids=>{reports.updateMany(ids,{notifyPending:false});};
 // What the agent reads before a scheduled instruction, so it knows no one typed it

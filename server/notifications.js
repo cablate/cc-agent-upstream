@@ -32,9 +32,9 @@ function startNotifications(agents,service=getDefaultPushService(),admins=active
  async function flushReplies(){
   for(const {conversation:c,message:m} of agents.pendingNotifications()){
    // The owner is looking at this conversation: the reply is already in front of them.
-   const viewing=agents.isViewing?.(c.owner,c.id);
-   if(viewing&&m.id.startsWith('prompt:'))continue;
-   if(!viewing)await service.notifyAgentReply(replyNotification(c,m));
+   const viewing=agents.isViewing?.(c.owner,c.id),reminder=m.id.startsWith('prompt:')&&m.id.endsWith(':reminder');
+   if(viewing&&m.id.startsWith('prompt:')&&!reminder)continue;
+   if(!viewing||reminder)await service.notifyAgentReply(replyNotification(c,m));
    m.notifyPending=false;agents.save();
   }
  }
