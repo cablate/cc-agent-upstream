@@ -118,8 +118,8 @@ async function everyAgent(kind){
 // Dialogs show plain text (js/safeDialog.js escapes it), a line break included.
 const chosenNames=()=>chosenList.value.map(c=>c.title).join('、');
 function pauseEveryAgent(){
- if(chosenList.value.length)f7.dialog.confirm(chosenNames()+'\n'+ct(agentPreferences.uxFeatures.value.mobilePause?'暫停會停下整個 Agent，聊天紀錄與 session 都會保留。之後要按「啟動」才會接回；只想停這一輪請用停止鈕或 Esc。':'執行中的回覆會中斷，聊天紀錄保留。'),ct('暫停選取的 Agent'),()=>everyAgent('stop'));
- else f7.dialog.confirm(ct(agentPreferences.uxFeatures.value.mobilePause?'暫停會停下整個 Agent，聊天紀錄與 session 都會保留。之後要按「啟動」才會接回；只想停這一輪請用停止鈕或 Esc。':'暫停所有 Agent？執行中的回覆會中斷，聊天紀錄保留。'),ct('全部暫停'),()=>everyAgent('stop'));
+ if(chosenList.value.length)f7.dialog.confirm(chosenNames()+'\n'+ct(agentPreferences.uxFeatures.value.mobilePause?'暫停會停下整個 Agent，聊天紀錄與 session 都會保留。之後要按「啟動」才會接回。':'執行中的回覆會中斷，聊天紀錄保留。'),ct('暫停選取的 Agent'),()=>everyAgent('stop'));
+ else f7.dialog.confirm(ct(agentPreferences.uxFeatures.value.mobilePause?'暫停會停下整個 Agent，聊天紀錄與 session 都會保留。之後要按「啟動」才會接回。':'暫停所有 Agent？執行中的回覆會中斷，聊天紀錄保留。'),ct('全部暫停'),()=>everyAgent('stop'));
 }
 function restartEveryAgent(){
  if(chosenList.value.length)f7.dialog.confirm(chosenNames()+'\n'+ct('執行中的回覆會中斷，聊天紀錄保留。'),ct('重啟選取的 Agent'),()=>everyAgent('restart'));

@@ -7,7 +7,7 @@
   <div :inert="agentLocked&&!(terminalOpen&&!terminalSide)" ref="scroll" class="page-content messages-content" @scroll.passive="onMessagesScroll" @wheel.passive="onHistoryWheel" @touchstart.passive="onHistoryTouchStart" @touchmove.passive="onHistoryTouchMove" @touchend.passive="onHistoryTouchEnd" @touchcancel="onHistoryTouchCancel" :class="{'terminal-content':terminalOpen&&!terminalSide&&user?.role==='admin','paging-back':pagingBack}">
    <f7-block v-if="error||agentOperationError" role="alert">{{agentOperationError||error}}</f7-block>
    <template v-if="detail">
-    <AgentStart v-if="terminalOpen&&!terminalSide&&terminalWaiting" :detail="detail" :action="action" :starting="startInProgress" :error="agentOperationError" panel/><TerminalPane v-else-if="terminalOpen&&!terminalSide&&user.role==='admin'" :key="detail.sessionId" :conversation-id="detail.id" :session-id="detail.sessionId"/>
+    <AgentStart v-if="terminalOpen&&!terminalSide&&terminalWaiting" :key="detail.id" :detail="detail" :action="action" :starting="startInProgress" :error="agentOperationError" panel/><TerminalPane v-else-if="terminalOpen&&!terminalSide&&user.role==='admin'" :key="detail.sessionId" :conversation-id="detail.id" :session-id="detail.sessionId"/>
     <template v-else>
      <f7-block v-if="detail.lastError">{{detail.lastError}}<f7-button @click="action('stop').then(()=>action('start'))">{{ct('重新連線')}}</f7-button></f7-block>
      <f7-block v-for="permission in detail.permissions||[]" :key="permission.request_id"><p>{{permission.description}}</p><pre>{{permission.input_preview}}</pre><f7-button @click="action('permission',{request_id:permission.request_id,generation:permission.generation,behavior:'allow'})">{{ct('允許這一次')}}</f7-button><f7-button @click="action('permission',{request_id:permission.request_id,generation:permission.generation,behavior:'deny'})">{{ct('拒絕')}}</f7-button></f7-block>
@@ -40,7 +40,7 @@
   <!-- Agent Profile beside the conversation on a desktop width; the popup elsewhere. -->
   <!-- The terminal beside the conversation on a desktop, with a divider to set their
        widths; on a phone it takes the page instead. -->
-  <aside v-if="terminalSide&&user?.role==='admin'&&detail" class="terminal-column" :aria-label="ct('Claude 終端機')"><div class="terminal-divider" role="separator" aria-orientation="vertical" :aria-label="ct('拖曳調整聊天室與終端機寬度')" :title="ct('拖曳調整聊天室與終端機寬度')" @pointerdown.stop="startTerminalResize" @mousedown.stop @touchstart.stop/><AgentStart v-if="terminalWaiting" :detail="detail" :action="action" :starting="startInProgress" :error="agentOperationError" panel/><TerminalPane v-else :key="detail.sessionId" :conversation-id="detail.id" :session-id="detail.sessionId"/></aside>
+  <aside v-if="terminalSide&&user?.role==='admin'&&detail" class="terminal-column" :aria-label="ct('Claude 終端機')"><div class="terminal-divider" role="separator" aria-orientation="vertical" :aria-label="ct('拖曳調整聊天室與終端機寬度')" :title="ct('拖曳調整聊天室與終端機寬度')" @pointerdown.stop="startTerminalResize" @mousedown.stop @touchstart.stop/><AgentStart v-if="terminalWaiting" :key="detail.id" :detail="detail" :action="action" :starting="startInProgress" :error="agentOperationError" panel/><TerminalPane v-else :key="detail.sessionId" :conversation-id="detail.id" :session-id="detail.sessionId"/></aside>
   <aside v-if="searchPanelVisible" class="profile-panel search-panel" :aria-label="ct('搜尋這個對話')">
    <header class="pp-head"><f7-link icon-only icon-f7="xmark" :aria-label="ct('關閉搜尋')" @click="searchOpen=false"/><div class="pp-title">{{ct('搜尋這個對話')}}</div><span class="pp-spacer"/></header>
    <div class="pp-body">
@@ -133,7 +133,7 @@ function pickMore(value){
 }
 const startInProgress=computed(()=>workspace.detail.value?.phase==='starting'||workspace.operationKind.value==='start');
 const startEditable=computed(()=>uxFeatures.value.mobilePause&&!['rotate','compact'].includes(workspace.activity(workspace.detail.value))&&(canStartAgent(workspace.detail.value)||startInProgress.value));
-const terminalWaiting=computed(()=>terminalFirst.value&&workspace.showTerminalSwitch.value&&(!workspace.detail.value?.connected||agentStarting(workspace.detail.value)||startInProgress.value));
+const terminalWaiting=computed(()=>terminalFirst.value&&workspace.showTerminalSwitch.value&&(canStartAgent(workspace.detail.value)||agentStarting(workspace.detail.value)||startInProgress.value));
 return {...workspace,startEditable,startInProgress,terminalWaiting,previewFile:ref(null),newChecklist:()=>askNewChecklist(workspace),moreOpen,morePoint,openMore,moreItems,pickMore};}};
 </script>
 
