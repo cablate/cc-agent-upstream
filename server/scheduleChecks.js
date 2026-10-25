@@ -69,7 +69,7 @@ function create(stateRoot, { problemOf = () => null, argumentProblemOf = () => n
       try {
         const env = { PATH: PATH_ENV, HOME: os.homedir(), LANG: 'en_US.UTF-8' };
         if (platform.isWin) for (const key of platform.WIN_ENV) if (process.env[key] !== undefined) env[key] = process.env[key];
-        child = spawn(real, c.command.slice(1), { cwd: os.homedir(), detached: true, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env });
+        child = spawn(real, c.command.slice(1), { cwd: os.homedir(), detached: true, ...(platform.isWin && { windowsHide: true }), stdio: ['pipe', 'pipe', 'pipe'], env });
       } catch (e) { resolve(failed('內建檢查無法啟動：' + e.message)); return; }
       const kill = () => {
         if (!child.pid) return null;
