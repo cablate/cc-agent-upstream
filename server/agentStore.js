@@ -716,7 +716,7 @@ function socketAgentId(from){
  if(!m||m[1].split('/').includes('..'))return undefined;
  let real;try{real=fs.realpathSync.native(m[1]);}catch{return undefined;}
  let serverTmp=null;try{serverTmp=fs.realpathSync.native(require('node:os').tmpdir());}catch{}
- const folders=[`/private/tmp/cca-${process.getuid?.()}/([0-9a-f]{8})-g\\d+`,'/private/tmp/cca-([0-9a-f]{8})-g\\d+',...(serverTmp?[`${escapeRe(serverTmp)}/cca-([0-9a-f]{8})-g\\d+`]:[])];
+ const folders=[`/private/tmp/cca-${platform.isWin?process.getuid?.():process.getuid()}/([0-9a-f]{8})-g\\d+`,'/private/tmp/cca-([0-9a-f]{8})-g\\d+',...(serverTmp?[`${escapeRe(serverTmp)}/cca-([0-9a-f]{8})-g\\d+`]:[])];
  for(const folder of folders){const hit=new RegExp(`^${folder}/cc-socks/${SOCKET_FILE}$`).exec(real);if(hit)return hit[1];}
  return undefined;
 }
