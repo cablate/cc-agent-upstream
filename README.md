@@ -50,7 +50,7 @@ For every feature in detail, see [docs/FEATURES.md](docs/FEATURES.md).
 </tr>
 <tr>
 <td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/sticker-think-dark.gif"><img src=".github/assets/sticker-think-light.gif" width="120" alt=""></picture></td>
-<td><b>Agents that work together.</b> Put several agents in a group chat with a lead, let them message each other, and follow shared checklists beside the conversation. Schedules wake an agent at set times, run small background scripts, or bring it new entries from an RSS feed. An optional wrap-up check, off until an admin turns it on in the Admin tab, asks an agent that has finished a task to make sure its work is saved and its notes are current.</td>
+<td><b>Agents that work together.</b> Put several agents in a group chat with a lead, let them message each other, and follow shared checklists beside the conversation. Schedules wake an agent at set times, run small background scripts, or bring it new entries from an RSS feed. With the peer link, agents on two of your machines can message each other, even on different Claude accounts (<a href="docs/PEER-LINK.md">how</a>). An optional wrap-up check, off until an admin turns it on in the Admin tab, asks an agent that has finished a task to make sure its work is saved and its notes are current.</td>
 </tr>
 <tr>
 <td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/sticker-work-dark.gif"><img src=".github/assets/sticker-work-light.gif" width="120" alt=""></picture></td>

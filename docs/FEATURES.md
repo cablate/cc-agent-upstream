@@ -41,6 +41,12 @@ This is the full tour. The [README](../README.md) is the short version.
 - **Who answers.** A message goes to the members it opens with `@`, to everyone with `@All`, or otherwise to the lead. What members send one another shows in the group too.
 - **Notifications.** You are notified only when a member calls on you with `@` in the group, once it has a result.
 
+## Peer link
+
+- **Two machines, one conversation.** Pair two CC Agent installations, even on different Claude accounts, and the agents you open on both sides can message each other over SSH. Details and setup: [PEER-LINK.md](PEER-LINK.md).
+- **You decide who talks.** An admin opens each agent and ticks which agents of the other machine it may exchange messages with; both sides must agree.
+- **Answers wait for you.** A reply to the other machine is a draft you send with one tap, unless you let that agent send replies back automatically. An agent that has just heard from someone else only answers until you write again.
+
 
 <p align="center">
   <img src="../.github/assets/screens/desktop-group-dark.png" alt="A group chat with its checklist">
