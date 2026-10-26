@@ -947,6 +947,7 @@ function pendingReplies(c) {
  return c.messages.filter(m=>m.role==='user'&&m.generation===c.generation&&m.delivery==='delivered'
   &&!(waiting&&(waiting.queued.has(m.id)||!waiting.handed.has(m.id)&&Date.now()-Date.parse(m.deliveredAt||m.at)<ARRIVING_MS)));
 }
+const LIVE_AGAIN=new Set(['Claude session 已中斷（例如重開機後），請重新連線。','Claude 已啟動，但一直沒有完成連線交握。請按重新連線再試一次。']);
 function markReady(c,g){g.ready=true;g.phase='ready';g.lastError='';g.startedAt=0;const marker=path.join(controlDir(c,g),'started.marker');if(c.mode==='claude')fs.writeFileSync(marker,g.sessionId,{mode:0o600});}
 const COMPACT_SCREEN_GRACE_MS=15000;
 // How long a compaction that was on screen may be gone from it before it is taken as ended.
@@ -965,6 +966,12 @@ function bridge(c,action,data={}) {
  // bootstrap completes the handshake too, and ready stays harmless when it follows.
  if(action==='bootstrap'){if(['starting','error'].includes(g.phase)&&!g.compacting){markReady(c,g);save(c);}return {profile:agentProfile.profile(c),memory:c.memory,handoff:c.handoff||null,reference:referenceInfo(c),checklists:checklists.summary(c)};}
  if(action==='poll') {
+  // The channel of this generation is asking for messages, so its session is alive: an
+  // agent marked as cut off or as never having finished its handshake comes back by
+  // itself (agents running and polling used to show offline until someone pressed
+  // reconnect). Only those two marks, which CC Agent sets from a
+  // check; an error the agent reported itself stays.
+  if(g.phase==='error'&&LIVE_AGAIN.has(g.lastError)&&!g.compacting&&!g.manualCompact){try{markReady(c,g);save(c);}catch(e){console.error(`live again for ${c.id}: ${e.message}`);}}
   const verdicts=permissions.deliveries(g);if(verdicts.length)return {permissions:verdicts};
   const pending=c.messages.find(m=>m.delivery==='queued');
   if(pending&&g.ready){// Working for a group from the moment its message is handed over, and for nothing
