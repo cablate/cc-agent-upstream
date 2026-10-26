@@ -35,7 +35,10 @@ const silent=()=>Date.now()-lastHeard>=QUIET_MS;
 function checkLine(){if(!disposed&&!document.hidden&&ws?.readyState===1&&silent())connect();}
 function onVisible(){if(disposed||document.hidden)return;if(!ws||ws.readyState>1||silent())connect();else term?.refresh(0,term.rows-1);}
 function connect(){if(disposed)return;const old=ws;ws=null;old?.close();term?.reset();status.value='正在附接終端…';lastHeard=Date.now();const socket=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/terminal/${props.conversationId}`);ws=socket;
- socket.onopen=()=>{if(ws!==socket)return;status.value='終端已連線';resize();term.focus();};
+ socket.onopen=()=>{if(ws!==socket)return;status.value='終端已連線';resize();
+  // On a phone focus raises the keyboard over half the screen at every open and
+  // every reattach; a tap on the terminal still focuses it.
+  if(!touch)term.focus();};
  socket.onmessage=e=>{if(ws!==socket)return;lastHeard=Date.now();const msg=JSON.parse(e.data);if(msg.type==='data')term.write(msg.data);else if(msg.type==='error')status.value=msg.message;};
  socket.onclose=()=>{if(ws===socket)status.value='終端已離線，可重新附接';};socket.onerror=()=>{if(ws===socket)status.value='附接失敗，請確認登入與 Claude 狀態';};
 }
