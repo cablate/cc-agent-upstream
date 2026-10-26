@@ -18,6 +18,21 @@ const {resolveClientIp}=require('./services/clientIp');
 // Express, so the API audit could not see them.
 const LOCKED='cc-agent-locked';
 const {execFileSync}=require('node:child_process');
+// The tmux to attach with: the very program the agents' tmux server runs. A server
+// started by an older tmux outlives an upgrade, and a newer client cannot open a
+// terminal on it ("open terminal failed: not a terminal", seen with a 3.5a server and a
+// 3.8 client), while starting sessions still works. Any other
+// answer (no server, its program gone, not named tmux) leaves the one on PATH.
+function serverTmux(socket){
+ try{
+  socket=socket||require('./agentStore').tmuxSocket;
+  const pid=execFileSync('tmux',['-L',socket,'list-sessions','-F','#{pid}'],{encoding:'utf8',timeout:2000,stdio:['ignore','pipe','ignore']}).trim().split('\n')[0];
+  if(!/^\d+$/.test(pid))return 'tmux';
+  const bin=execFileSync('ps',['-o','comm=','-p',pid],{encoding:'utf8',timeout:2000,stdio:['ignore','pipe','ignore']}).trim();
+  const p=require('node:path'),fs=require('node:fs');
+  return p.isAbsolute(bin)&&p.basename(bin)==='tmux'&&fs.statSync(bin).isFile()?bin:'tmux';
+ }catch{return 'tmux';}
+}
 function sessionAlive(session){if(!session)return false;try{execFileSync('tmux',['-L',require('./agentStore').tmuxSocket,'has-session','-t',String(session).split(':')[0]],{stdio:'ignore',timeout:2000});return true;}catch{return false;}}
 const attachArgs=(session,socket=require('./agentStore').tmuxSocket)=>['-L',socket,
  'set-option','-t',session,'mouse','on',';',
@@ -27,7 +42,7 @@ const attachArgs=(session,socket=require('./agentStore').tmuxSocket)=>['-L',sock
  'bind-key','-T',LOCKED,'MouseDrag1Pane','if-shell','-F','#{||:#{pane_in_mode},#{mouse_any_flag}}','send-keys -M','copy-mode -M',';',
  'bind-key','-T',LOCKED,'WheelUpPane','if-shell','-F','#{||:#{alternate_on},#{pane_in_mode},#{mouse_any_flag}}','send-keys -M','copy-mode -e',';',
  'attach-session','-t',session];
-function installTerminal(server,{ptyModule=require('node-pty'),tickMs=3000,sessionAlive:alive=sessionAlive}={}){
+function installTerminal(server,{tmuxClient=serverTmux,ptyModule=require('node-pty'),tickMs=3000,sessionAlive:alive=sessionAlive}={}){
  const wss=new WebSocketServer({noServer:true,maxPayload:65536});
  // A connection refused before anyone is known takes no sign-in to make: at most
  // thirty lines a minute of those in the audit log.
@@ -70,7 +85,7 @@ function installTerminal(server,{ptyModule=require('node-pty'),tickMs=3000,sessi
     let ticks=0;
     // From where, too: the same address the sign-in records keep.
     audit({source:'terminal',path:req.url,status:101,username:principal.username,role:principal.role,conversation:c.id,ip:resolveClientIp(req)});
-    try{terminal=ptyModule.spawn('tmux',attachArgs(g.tmux),{name:'xterm-256color',cols:100,rows:30,cwd:agents.stateRoot,env:{...agentEnv(),TERM:'xterm-256color'}});}catch{send({type:'error',message:'無法附接終端，請確認此對話仍在執行。'});return close();}
+    try{terminal=ptyModule.spawn(tmuxClient(),attachArgs(g.tmux),{name:'xterm-256color',cols:100,rows:30,cwd:agents.stateRoot,env:{...agentEnv(),TERM:'xterm-256color'}});}catch{send({type:'error',message:'無法附接終端，請確認此對話仍在執行。'});return close();}
     terminal.onData(data=>{if(!valid())return close();send({type:'data',data});});
     terminal.onExit(()=>{send({type:'closed'});close();});
     let windowStart=Date.now(),bytes=0;
@@ -94,4 +109,4 @@ function installTerminal(server,{ptyModule=require('node-pty'),tickMs=3000,sessi
  const close=()=>{for(const ws of wss.clients)ws.close();wss.close();};
  return {close,wss};
 }
-module.exports={installTerminal,attachArgs};
+module.exports={installTerminal,attachArgs,serverTmux};
