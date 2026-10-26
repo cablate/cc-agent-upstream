@@ -664,7 +664,8 @@ const english = {
   "帳號已停用": "Disabled",
   "拖曳調整順序": "Drag to reorder",
   
-  "清單剛剛變了，已重新載入，請再排一次。": "The list changed meanwhile and was reloaded; please order it again."
+  "清單剛剛變了，已重新載入，請再排一次。": "The list changed meanwhile and was reloaded; please order it again.",
+  "連線逾時，請再試一次。": "The connection timed out. Try again."
 };
 // {product} in a text is the product's name (productConfig.js), so the account and
 // settings texts need no product name of their own.

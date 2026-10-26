@@ -10,10 +10,16 @@ export const usersLoading = ref(false);
 // when another admin saved one meanwhile).
 export const usersOrderVersion = ref('');
 
+// A list that never answers ends: the page says so, and the next entry, pull or poll
+// asks again.
+const USERS_TIMEOUT_MS = 20000;
+
 export async function loadUsers() {
   usersLoading.value = true;
   try {
-    const data = await api('/auth/users');
+    let data;
+    try { data = await api('/auth/users', { signal: AbortSignal.timeout(USERS_TIMEOUT_MS) }); }
+    catch (e) { throw e?.name === 'TimeoutError' ? new Error(ct('連線逾時，請再試一次。')) : e; }
     users.value = data.users || [];
     usersOrderVersion.value = data.orderVersion || '';
   } finally {
