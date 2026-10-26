@@ -14,11 +14,20 @@ function applyUser(user) {
   if (user?.language) setLang(user.language, { persist: false });
 }
 
+const VERIFY_TIMEOUT_MS = 8000, VERIFY_TRIES = 2;
+
 export async function verifyAuth() {
   authLoading.value = true;
   authError.value = null;
   try {
-    const data = await api('/auth/verify');
+    // A request that never answers (a phone back from the background, a network just
+    // changed) would leave the app on its start page for good: each check gets a time
+    // limit, and one that runs out is asked again.
+    let data;
+    for (let tries = 1; ; tries++) {
+      try { data = await api('/auth/verify', { signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS) }); break; }
+      catch (e) { if (e?.name !== 'TimeoutError' || tries >= VERIFY_TRIES) throw e; }
+    }
     applyUser(data.user);
   } catch {
     currentUser.value = null;

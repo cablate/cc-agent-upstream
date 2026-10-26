@@ -981,7 +981,12 @@ async function tick(){
 }
 watch(user,async(next,prev)=>{if(next?.id===prev?.id)return;signedIn=false;opening++;cancelHistoryPaging();closeNew();busy.value=false;operations.value={};operationErrors.value={};drafts.clear();conversations.value=[];listLoaded.value=false;agentPreferences.listGroups.value=[];selected.value=null;detail.value=null;draft.value='';terminalOpen.value=false;// No one yet is also the moment before the sign-in check answers: the cover stays
 // (it shows only to someone signed in), for the look that follows it.
-if(!next)return;try{await attempt(loadPreferences);await attempt(agentPreferences.loadListPreferences);await attempt(refresh);await nextTick();if(user.value?.id!==next.id)return;signedIn=true;if(next.role==='admin')loadGroups().catch(()=>{});await openNotification();await notifications.look();}finally{if(user.value?.id===next.id){startupLooking=false;uncoverSoon(0);leaveStart();}}},{immediate:true});
+if(!next)return;
+// The start page is left eight seconds after signing in however the first load is
+// going: a request that never answers would otherwise keep the app on the spinner,
+// and the eight seconds counted from load may pass before anyone is signed in.
+const giveUp=setTimeout(()=>{if(user.value?.id===next.id){startupLooking=false;uncoverSoon(0);leaveStart();}},8000);
+try{await attempt(loadPreferences);await attempt(agentPreferences.loadListPreferences);await attempt(refresh);await nextTick();if(user.value?.id!==next.id)return;signedIn=true;if(next.role==='admin')loadGroups().catch(()=>{});await openNotification();await notifications.look();}finally{clearTimeout(giveUp);if(user.value?.id===next.id){startupLooking=false;uncoverSoon(0);leaveStart();}}},{immediate:true});
 let unwatchWidth;
 onMounted(()=>{
  const query=matchMedia(WIDE);const track=()=>{wideScreen.value=query.matches;if(!query.matches)clearInspection();};
