@@ -4,6 +4,11 @@ const express=require('express');
 const {verifyToken}=require('./middlewares/authMiddleware');
 exports.installBridge=app=>{
 app.use('/bridge',(req,res,next)=>{res.setHeader('Cache-Control','no-store');if(req.headers.origin)return res.status(403).end();next();});
+// The answering side's key for the other machine's forced command (peer link).
+try{agents.peerKey();}catch(e){console.error('peer key:',e.message);}
+// The other machine's exchange (peer link), before the per-agent route would take it.
+app.post('/bridge/peer/exchange',(req,res,next)=>{try{res.json(agents.peerExchange((req.headers.authorization||'').replace(/^Bearer /,''),req.body||{}));}catch(e){next(e);}});
+app.all('/bridge/peer/:any',(req,res)=>res.status(404).json({message:'Not found'}));
 app.all('/bridge/:id/:action',(req,res,next)=>{try{
  const c=agents.byToken(req.params.id,(req.headers.authorization||'').replace(/^Bearer /,''));
  res.json(agents.bridge(c,req.params.action,req.method==='GET'?req.query:req.body));
@@ -12,6 +17,39 @@ app.all('/bridge/:id/:action',(req,res,next)=>{try{
 };
 exports.installAgentRoutes=app=>{app.use('/api/conversations',verifyToken);app.use('/api/groups',verifyToken);app.use('/api/preferences',verifyToken);
 const adminOnly=(req,res,next)=>req.role==='admin'?next():res.status(403).json({message:'Admin only'});
+// The peer link (docs/PEER-LINK.md): pairing this machine with another, and an
+// agent opened to it. Whatever widens it asks for the admin's password and code again;
+// pausing does not.
+{
+const auth=require('./controllers/authController');
+const again=how=>async(req,res,next)=>{try{if(await auth.adminAgain(req,res,how,'peer-link'))next();}catch(e){next(e);}};
+const done=(req,res,v)=>{auth.adminGranted(req,'peer-link');res.json(v);};
+const kept=(req,next)=>e=>{auth.adminKept(req);next(e);};
+const peerRoutes=[verifyToken,adminOnly,(req,res,next)=>{res.set('Cache-Control','private, no-store');next();}];
+app.get('/api/peer-link',...peerRoutes,(req,res)=>res.json(agents.peerLink.list()));
+app.post('/api/peer-link/invite',...peerRoutes,again('peer-invite'),(req,res,next)=>{try{done(req,res,agents.peerLink.invite(req.username));}catch(e){kept(req,next)(e);}});
+app.post('/api/peer-link/join',...peerRoutes,again('peer-join'),(req,res,next)=>{agents.peerLink.join({code:req.body?.code,name:req.body?.name,by:req.username}).then(v=>done(req,res,v),kept(req,next));});
+app.post('/api/peer-link/:pairId/enable',...peerRoutes,again('peer-enable'),(req,res,next)=>{try{done(req,res,agents.peerLink.setState(req.params.pairId,'active',req.username));}catch(e){kept(req,next)(e);}});
+app.post('/api/peer-link/:pairId/pause',...peerRoutes,(req,res,next)=>{try{res.json(agents.peerLink.setState(req.params.pairId,'paused',req.username));}catch(e){next(e);}});
+app.post('/api/peer-link/:pairId/rename',...peerRoutes,(req,res,next)=>{try{res.json(agents.peerLink.rename(req.params.pairId,req.body?.name,req.username));}catch(e){next(e);}});
+// A POST, since a DELETE carries no body here for the password.
+app.post('/api/peer-link/:pairId/remove',...peerRoutes,again('peer-remove'),(req,res,next)=>{try{done(req,res,agents.peerLink.remove(req.params.pairId,req.username));}catch(e){kept(req,next)(e);}});
+// An agent: on or off, which agents of paired machines, replies sent back at once.
+app.post('/api/conversations/:id/peer-link',adminOnly,async(req,res,next)=>{try{
+ const c=agents.get(req.params.id,req.userId);
+ const next_=agents.peerConfig(c,req.body||{});
+ if(agents.peerWidens(c,next_)){if(!(await auth.adminAgain(req,res,'peer-agent',c.id)))return;}
+ try{agents.setPeerConfig(c,next_);}catch(e){auth.adminKept(req);throw e;}
+ auth.adminGranted(req,c.id);
+ require('./services/audit').audit({source:'peer-link',action:'agent',agentId:c.id,on:next_.on,allow:next_.allow.length,autoReply:next_.autoReply,by:req.username});
+ res.json(agents.publicView(c,true));
+}catch(e){next(e);}});
+// The owner sends a reply draft on to the other machine, or drops it.
+app.post('/api/conversations/:id/peer-draft/:messageId',adminOnly,(req,res,next)=>{try{
+ const c=agents.get(req.params.id,req.userId);
+ res.json(agents.peerDraft(c,req.params.messageId,req.body?.send===true));
+}catch(e){next(e);}});
+}
 // Group chats are an admin's.
 app.use('/api/groups',adminOnly);
 app.use('/api/preferences',adminOnly);
@@ -180,7 +218,7 @@ app.delete('/api/conversations/:id/attachments/:fileId',own,(req,res,next)=>{try
 app.get('/api/conversations/:id/avatar',own,(req,res,next)=>{try{const file=agents.avatarLocation(req.conversation);res.set('Cache-Control','private, max-age=31536000, immutable');res.set('X-Content-Type-Options','nosniff');res.type(file.type);res.sendFile(file.path);}catch(e){next(e);}});
 app.post('/api/conversations/:id/avatar',adminOnly,own,express.raw({type:()=>true,limit:agents.AVATAR_MAX_BYTES}),(req,res,next)=>{try{agents.setAvatar(req.conversation,req.body);res.json(agents.publicView(req.conversation,true));}catch(e){next(e);}});
 app.delete('/api/conversations/:id/avatar',adminOnly,own,(req,res,next)=>{try{agents.clearAvatar(req.conversation);res.json(agents.publicView(req.conversation,true));}catch(e){next(e);}});
-app.post('/api/conversations/:id/messages',(req,res,next)=>{try{const c=agents.get(req.params.id,req.userId);const mentions=agents.mentionsFor(req.userId,req.body.mentions,req.body.text);const sent=agents.send(c,req.body.text,req.body.requestId,req.body.attachmentIds,mentions.length?{mentions}:{});
+app.post('/api/conversations/:id/messages',(req,res,next)=>{try{const c=agents.get(req.params.id,req.userId);const mentions=agents.mentionsFor(req.userId,req.body.mentions,req.body.text,c);const sent=agents.send(c,req.body.text,req.body.requestId,req.body.attachmentIds,mentions.length?{mentions}:{});
  res.json(sent);}catch(e){next(e);}});
 app.post('/api/conversations/:id/:action',(req,res,next)=>{try{
  const c=agents.get(req.params.id,req.userId);

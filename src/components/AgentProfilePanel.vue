@@ -43,6 +43,18 @@
    </f7-list>
   </template>
   <AgentDiagnostics :admin="user?.role==='admin'" @trace-start="$emit('trace-start')" :detail="detail" :status="statusLabel"/>
+  <!-- Messages with agents of a paired machine: an admin opens the agent, ticks which agents there it may hear from and write to,
+       and may let its replies go back without being read first. Saved together. -->
+  <f7-list v-if="user?.role==='admin'&&detail.mode!=='command'&&peerDraft" inset class="cc-settings-list agent-peer-link" :class="{'peer-ineligible':!peerEligible}">
+   <f7-list-item class="agent-peer-on" :class="{disabled:!peerEligible&&!peerDraft.on}" :title="ct('跨機傳訊')" :footer="peerEligible?ct('和已配對電腦上勾選的 agent 互傳訊息。'):peerWhy"><template #media><f7-icon f7="link"/></template><template #after><f7-toggle :checked="peerDraft.on" :disabled="!peerEligible&&!peerDraft.on" @toggle:change="peerDraft={...peerDraft,on:$event}"/></template></f7-list-item>
+   <template v-if="peerDraft.on||peerDraft.allow.length">
+    <f7-list-item v-if="!peerChoices.length" class="agent-peer-none" :footer="ct('還沒有已配對的電腦，或對方還沒開放任何 agent。請到管理頁的「跨機連線」設定。')" :title="ct('可以往來的 agent')"/>
+    <f7-list-item v-for="x in peerChoices" :key="x.pairId+'/'+x.agentId" checkbox class="agent-peer-allow" :data-agent-id="x.agentId" :title="x.machine+' · '+(x.title||ct('不在對方名單'))" :footer="[x.owner,x.agentId.slice(0,8)].filter(Boolean).join(' · ')" :checked="peerTicked(x)" @change="peerTick(x,$event.target.checked)"/>
+    <f7-list-item class="agent-peer-auto" :title="ct('自動送回回覆')" :footer="ct('打開後，回覆會直接送回對方，不會先讓你看過。')"><template #after><f7-toggle :checked="peerDraft.autoReply" @toggle:change="peerDraft={...peerDraft,autoReply:$event}"/></template></f7-list-item>
+   </template>
+   <f7-list-item v-if="peerDirty" link no-chevron class="agent-peer-save" :title="ct('保存跨機傳訊設定')" @click.prevent="savePeer"><template #media><f7-icon f7="checkmark_circle"/></template></f7-list-item>
+  </f7-list>
+
   <f7-block v-if="error" role="alert">{{error}}</f7-block>
  </template>
 </template>
@@ -50,20 +62,60 @@
 import AgentDiagnostics from "./AgentDiagnostics.vue";
 import AgentProfileFields from "./AgentProfileFields.vue";
 import GlassDropdown from "./GlassDropdown.vue";
-import {inject,computed,ref} from "vue";
+import {inject,computed,ref,watch,onBeforeUnmount} from "vue";
+import {api} from "../js/api.js";
+import {adminProblem,withAdminAgain} from "../js/adminAgain.js";
 import {f7} from "framework7-vue";
 import {compactCount,compactPolicy} from "../js/agent-i18n.js";
 import {compactThreshold,wrapUp} from "../js/agentPreferences.js";
 import {defaultAvatar,avatarShape} from "../js/avatarShape.js";
+// Why an agent cannot be opened to the peer link (server peerWhyNot).
+const PEER_WHY={scoped:'受限的 agent 不能開通',"watch-open":'開放給外部聊天的 agent 不能開通',"owner-not-admin":'擁有者不是在職的管理員，不能開通',archived:'已刪除的 agent 不能開通',"not-claude":'只有 Claude agent 能開通'};
+const peerOf=d=>d?.peerLink?{on:!!d.peerLink.on,allow:(d.peerLink.allow||[]).map(x=>({pairId:x.pairId,agentId:x.agentId})),autoReply:!!d.peerLink.autoReply}:null;
+const peerSame=(a,b)=>!!a&&!!b&&a.on===b.on&&a.autoReply===b.autoReply&&a.allow.length===b.allow.length&&a.allow.every(x=>b.allow.some(y=>y.pairId===x.pairId&&y.agentId===x.agentId));
 // `title` on a list item is its label, so a row's hover hint is set on its element.
 const hint=(el,binding)=>{el.title=binding.value||'';};
 export default {components:{AgentProfileFields,AgentDiagnostics,GlassDropdown},directives:{hint},emits:['trace-start'],setup(){const w=inject("workspace");const avatarInput=ref(null);
  let engineToast=null;
  const thresholdOpen=ref(false),thresholdPoint=ref({clientX:0,clientY:0});
  const following=()=>w.ct('跟隨管理設定')+'（'+compactPolicy(compactThreshold.value)+'）';
+ // The peer link section: a draft of on, ticks and auto-reply, saved together; the
+ // paired machines' directories to tick from, read when the panel shows an agent.
+ const peerDraft=ref(peerOf(w.detail.value)),peerPeers=ref([]);
+ const peerDirty=computed(()=>!!peerDraft.value&&!peerSame(peerDraft.value,peerOf(w.detail.value)));
+ watch(()=>[w.detail.value?.id,JSON.stringify(w.detail.value?.peerLink||null)],([id],[wasId]=[])=>{if(id!==wasId||!peerDirty.value)peerDraft.value=peerOf(w.detail.value);});
+ async function loadPeers(){if(w.user.value?.role!=='admin'||!w.detail.value||w.detail.value.mode==='command')return;try{peerPeers.value=(await api('/peer-link')).peers||[];}catch{peerPeers.value=[];}}
+ watch(()=>[w.detail.value?.id,w.user.value?.role],([id],[wasId]=[])=>{if(id&&id!==wasId)loadPeers();},{immediate:true});
+ // The other machine's list comes in by itself: the live socket says the pairing state
+ // changed.
+ const onPeerLive=()=>{if(w.detail.value?.peerLink)loadPeers();};
+ window.addEventListener('cc-agent-changed',onPeerLive);onBeforeUnmount(()=>window.removeEventListener('cc-agent-changed',onPeerLive));
+ const peerChoices=computed(()=>{
+  const list=[];
+  for(const p of peerPeers.value)for(const a of p.directory||[])list.push({pairId:p.pairId,machine:p.name,agentId:a.agentId,title:a.title,owner:a.owner});
+  // A tick whose agent is no longer listed stays, so it can be taken away.
+  for(const x of peerDraft.value?.allow||[])if(!list.some(y=>y.pairId===x.pairId&&y.agentId===x.agentId))list.push({...x,machine:peerPeers.value.find(p=>p.pairId===x.pairId)?.name||x.pairId.slice(0,8),title:'',owner:''});
+  return list;
+ });
+ const peerTicked=x=>!!peerDraft.value?.allow.some(y=>y.pairId===x.pairId&&y.agentId===x.agentId);
+ function peerTick(x,on){const d=peerDraft.value;if(!d)return;const rest=d.allow.filter(y=>!(y.pairId===x.pairId&&y.agentId===x.agentId));peerDraft.value={...d,allow:on?[...rest,{pairId:x.pairId,agentId:x.agentId}]:rest};}
+ // Widening (on, a new tick, auto-reply) asks for the admin's password; narrowing does not.
+ async function savePeer(){
+  const id=w.detail.value?.id,body=peerDraft.value;if(!id||!body)return;
+  try{
+   const d=await withAdminAgain(w.ct('跨機傳訊'),again=>api('/conversations/'+id+'/peer-link',{method:'POST',body:JSON.stringify({...body,...again})}));
+   if(!d||w.detail.value?.id!==id)return;
+   w.detail.value={...w.detail.value,...d,messages:w.detail.value.messages,hasOlder:w.detail.value.hasOlder};
+   peerDraft.value=peerOf(w.detail.value);
+   f7.toast.create({text:w.ct('設定已保存'),closeTimeout:1800}).open();
+  }catch(e){f7.dialog.alert(adminProblem(e)||e.message);}
+ }
  const canStart=computed(()=>["stopped","error"].includes(w.detail.value?.phase)||!w.detail.value?.connected&&!["starting","busy","handing-off"].includes(w.detail.value?.phase));
  const canRestart=computed(()=>!!w.detail.value&&!["stopped","error","starting","handing-off"].includes(w.detail.value.phase));
  return {...w,defaultAvatar,avatarShape,
+  peerDraft,peerDirty,peerChoices,peerTicked,peerTick,savePeer,
+  peerEligible:computed(()=>w.detail.value?.peerLink?.eligible!==false),
+  peerWhy:computed(()=>{const why=w.detail.value?.peerLink?.why;return why?w.ct(PEER_WHY[why]||why):'';}),
   thresholdOpen,thresholdPoint,
   thresholdLabel:computed(()=>w.detail.value?.thresholdOwn?compactPolicy(w.detail.value.threshold):following()),
   thresholdItems:computed(()=>[{value:'follow',label:following()},...Array.from({length:10},(_,i)=>({value:String(i+1),label:compactCount(i+1)})),{value:'0',label:compactPolicy(0)}]),

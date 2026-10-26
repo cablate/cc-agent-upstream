@@ -1651,3 +1651,8 @@ exports.qrDecide = async (req, res) => {
   } catch (e) { sendQrError(res, e); }
 };
 exports._qrRequests = qrRequests;
+// The admin's password (and code) again, for what another part of the site guards the
+// same way: the peer link's pairing and an agent opened to it (ccAgentRoutes).
+exports.adminAgain = adminAgain;
+exports.adminGranted = adminGranted;
+exports.adminKept = adminKept;

@@ -78,8 +78,10 @@ service.startService({app,port:site.servicePort(),
   // Messages between agents' sessions reach both chats within a few seconds.
   setInterval(()=>agents.syncAllRelays(),4000).unref();
   setInterval(runSchedules,30_000).unref();setTimeout(runSchedules,5_000).unref();
+  // The peer link's exchange with a paired machine, on the side that connects (server/peerLink.js).
+  try{agents.peerLink.start();}catch(e){console.error('peer link:',e.message);}
   const terminals=require('../server/terminal.js').installTerminal(server);
   return {
-   stop(){stopNotifications();terminals.close();return 0;},
+   stop(){stopNotifications();try{agents.peerLink.stop();}catch{}terminals.close();return 0;},
   };
  }});

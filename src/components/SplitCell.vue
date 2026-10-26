@@ -14,7 +14,7 @@
     <f7-block v-if="cellError||operationError" class="split-alert" role="alert">{{operationError||cellError}}</f7-block>
     <f7-block v-if="detail.lastError" class="split-last-error">{{detail.lastError}}<f7-button @click="reconnect">{{ct('重新連線')}}</f7-button></f7-block>
     <f7-block v-for="permission in detail.permissions||[]" :key="permission.request_id" class="split-permission"><p>{{permission.description}}</p><pre>{{permission.input_preview}}</pre><f7-button @click="action('permission',{request_id:permission.request_id,generation:permission.generation,behavior:'allow'})">{{ct('允許這一次')}}</f7-button><f7-button @click="action('permission',{request_id:permission.request_id,generation:permission.generation,behavior:'deny'})">{{ct('拒絕')}}</f7-button></f7-block>
-    <MessageList :messages="detail.messages" :conversation-id="conversationId" :has-older="detail.hasOlder" :older-busy="olderBusy"
+    <MessageList :peer-targets="detail.peerLink?.targets||[]" :messages="detail.messages" :conversation-id="conversationId" :has-older="detail.hasOlder" :older-busy="olderBusy"
      :avatar="detail.avatar||defaultAvatar(detail)" :background-text="backgroundText" :typing="typing" :typing-text="typingText" :typing-note="typingNote"
      :interruptible="canInterrupt" :interrupting="interrupting" :inspectable="sidePanel==='inspector'" :inspect-id="inspectId" :found-id="foundId"
      :empty-text="ct('說明你的目標、背景，或想釐清的問題。')" @load-older="loadOlder" @preview="preview=$event" @interrupt="interrupt" @inspect="inspect"
@@ -252,7 +252,7 @@ watch(sidePanel,p=>{if(p==='search')nextTick(()=>root.value?.querySelector('.spl
 // the group chats, for an admin, as on the conversation page.
 const caret=()=>caretToEnd(composer.value);
 const slash=useSlashMenu({draft,conversationId:computed(()=>props.conversationId),caret});
-const mention=useMentionMenu({draft,agents:computed(()=>!isAdmin.value?[]:[...chatGroups.value.map(g=>({id:g.id,title:g.name,group:true,section:ct('群聊')})),...inSections((workspace.conversations.value||[]).filter(c=>c.id!==props.conversationId),listGroups.value).map(c=>({id:c.id,title:c.title,avatar:c.avatar,source:c.source,provider:c.provider,section:c.section}))])});
+const mention=useMentionMenu({draft,agents:computed(()=>!isAdmin.value?[]:[...chatGroups.value.map(g=>({id:g.id,title:g.name,group:true,section:ct('群聊')})),...inSections((workspace.conversations.value||[]).filter(c=>c.id!==props.conversationId),listGroups.value).map(c=>({id:c.id,title:c.title,avatar:c.avatar,source:c.source,provider:c.provider,section:c.section})),...(detail.value?.peerLink?.targets||[]).map(t=>({id:'peer:'+t.pairId+':'+t.agentId,title:t.to,avatar:t.icon||undefined,section:ct('另一台電腦')}))])});
 function pickMention(item){mention.complete(item,caret);}
 function composerKeydown(event){
  if(slash.onKeydown(event,send))return;

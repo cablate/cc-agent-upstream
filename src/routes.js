@@ -16,6 +16,7 @@ import UserEditPage from './pages/UserEditPage.vue';
 import AccessReportsPage from './pages/AccessReportsPage.vue';
 import AccessReportDetailPage from './pages/AccessReportDetailPage.vue';
 import SecurityPage from './pages/SecurityPage.vue';
+import PeerLinkPage from './pages/PeerLinkPage.vue';
 import DeletedAgentsPage from './agent-pages/DeletedAgentsPage.vue';
 
 // Tab-view roots. Each F7 view owns its own router stack and resolves its url here.
@@ -54,5 +55,7 @@ export default [
   { path: '/access-report/', component: AccessReportDetailPage },
   // Sign-in defence: what was tried and which addresses are blocked.
   { path: '/security/', component: SecurityPage },
+  // The peer link: this machine paired with another CC Agent.
+  { path: '/peer-link/', component: PeerLinkPage },
 
 ];

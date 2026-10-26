@@ -106,7 +106,7 @@ function installLiveUpdates(server,{
   const key=ws.owner+':'+(ws.viewing||'');
   if(memo.has(key))return memo.get(key);
   // The list's groups count too: a new or renamed group, empty or not, is news.
-  if(!memo.has(ws.owner))memo.set(ws.owner,[agents.list(ws.owner),agents.listPreferences(ws.owner),agents.groupList(ws.owner)]);
+  if(!memo.has(ws.owner))memo.set(ws.owner,[agents.list(ws.owner),agents.listPreferences(ws.owner),agents.groupList(ws.owner),agents.peerLinkDigest?.()]);
   let detail=null;
   if(ws.viewing){try{detail=ws.viewingGroup?agents.groupView(agents.groupFor(ws.viewing,ws.owner),true):agents.publicView(agents.get(ws.viewing,ws.owner),true);}catch{ws.viewing=null;}}
   const value=digest([memo.get(ws.owner),detail]);memo.set(key,value);return value;

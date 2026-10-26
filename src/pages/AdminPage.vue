@@ -26,6 +26,8 @@
     <f7-block-title>{{ t('sectionSystem') }}</f7-block-title>
     <f7-list inset class="cc-settings-list">
       <f7-list-item link class="security-row" :title="ct('登入防禦')" @click.prevent="goSecurity"><template #media><f7-icon f7="shield_lefthalf_fill"/></template></f7-list-item>
+      <!-- The peer link: pairing with another machine. -->
+      <f7-list-item link class="peer-link-row" :title="ct('跨機連線')" @click.prevent="goPeerLink"><template #media><f7-icon f7="link"/></template></f7-list-item>
       <f7-list-item link :title="ct('範圍報告單')" :badge="openReports||null" badge-color="orange" @click.prevent="goReports"><template #media><f7-icon f7="lock_shield"/></template></f7-list-item>
       <f7-list-item :title="ct('聊天室終端機切換')"><template #media><f7-icon f7="chevron_left_slash_chevron_right"/></template><template #after><label class="toggle"><input type="checkbox" :aria-label="ct('聊天室終端機切換')" :checked="terminalSwitch" @change="saveTerminalSwitch($event.target.checked)"/><span class="toggle-icon"></span></label></template></f7-list-item>
       <f7-list-item class="transcript-switch" :title="ct('Transcript 檢視')"><template #media><f7-icon f7="ant" class="ant-icon"/></template><template #after><label class="toggle"><input type="checkbox" :aria-label="ct('顯示 Transcript 檢視按鈕')" :checked="transcriptSwitch" @change="saveTranscriptSwitch($event.target.checked)"/><span class="toggle-icon"></span></label></template></f7-list-item>
@@ -158,6 +160,10 @@ async function onDropdownSelect(value) {
 
 function goSecurity() {
   f7.views.get('#view-admin').router.navigate('/security/');
+}
+
+function goPeerLink() {
+  f7.views.get('#view-admin').router.navigate('/peer-link/');
 }
 
 function goReports() {

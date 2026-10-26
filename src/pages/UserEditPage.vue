@@ -103,6 +103,7 @@ import { ct } from '../js/agent-i18n.js';
 import { PRODUCT } from '../js/productConfig.js';
 import { api, currentUser } from '../js/auth.js';
 import { users, loadUsers, findUser } from '../js/users-store.js';
+import { adminAgain, adminProblem } from '../js/adminAgain.js';
 import GlassDropdown from '../components/GlassDropdown.vue';
 import AgentProfileFields from '../components/AgentProfileFields.vue';
 
@@ -184,16 +185,9 @@ function changeUserName() {
     adminAgain(t('changeUserName'), (again) => adminDo(() => api(`/auth/users/${userId}`, { method: 'PUT', body: JSON.stringify({ username, ...again }) }), t('settingsSaved')));
   }, undefined, user.value?.username || '');
 }
-// The acting admin's own password again, and the code when their two-step is on: making an administrator, resetting a password,
-// enabling or renaming an administrator.
-function adminAgain(title, then, text = ct('請輸入你自己的密碼確認。')) {
-  f7.dialog.password(text, title, (adminPassword) => {
-    if (!adminPassword) return;
-    if (!currentUser.value?.twoStep) return then({ adminPassword });
-    f7.dialog.prompt(ct('請輸入你的驗證碼或備用碼。'), title, (adminCode) => { if ((adminCode || '').trim()) then({ adminPassword, adminCode: adminCode.trim() }); });
-  });
-}
-const adminProblem = (err) => (err.code === 'NEED_CODE' ? ct('你的帳號已開啟兩步驟驗證，請重新整理頁面後再試一次') : err.code === 'CODES_SPENT' ? ct('今天驗證碼輸錯太多次，今天不再接受驗證器的碼，請改用備用碼') : err.status === 429 ? t('tooManyAttempts') : err.code === 'WRONG_PASSWORD' ? ct('密碼不正確') : err.code === 'WRONG_CODE' ? ct('驗證碼不正確') : null);
+// The acting admin's own password again, and the code when their two-step is on
+// (js/adminAgain.js): making an administrator, resetting a password, enabling or
+// renaming an administrator.
 async function adminDo(call, successText) {
   // A refusal that says the clean-up was incomplete has changed the account all the
   // same: the list is read again either way.

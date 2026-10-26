@@ -110,6 +110,9 @@ app.use(cors({
   },
 }));
 
+// The other machine's exchange (peer link, agentStore/peerLink.js): up to 256 KB, only on
+// the lowercase path and never from Cloudflare or a page, before the site-wide limit.
+app.use('/bridge/peer', (req, res, next) => (!req.originalUrl.startsWith('/bridge/peer/') || req.headers.origin || req.headers['cf-connecting-ip'] || req.headers['cf-ray'] || req.headers['cdn-loop'] ? res.status(404).json({ message: 'Not found' }) : next()), express.json({ limit: '256kb' }));
 app.use(express.json({ limit: JSON_BODY_LIMIT }));
 app.use(jsonBodyErrorHandler);
 app.use(cookieParser());
