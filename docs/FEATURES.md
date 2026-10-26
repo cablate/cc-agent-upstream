@@ -41,15 +41,30 @@ This is the full tour. The [README](../README.md) is the short version.
 - **Who answers.** A message goes to the members it opens with `@`, to everyone with `@All`, or otherwise to the lead. What members send one another shows in the group too.
 - **Notifications.** You are notified only when a member calls on you with `@` in the group, once it has a result.
 
-## Peer link
-
-- **Two machines, one conversation.** Pair two CC Agent installations, even on different Claude accounts, and the agents you open on both sides can message each other over SSH. Details and setup: [PEER-LINK.md](PEER-LINK.md).
-- **You decide who talks.** An admin opens each agent and ticks which agents of the other machine it may exchange messages with; both sides must agree.
-- **Answers wait for you.** A reply to the other machine is a draft you send with one tap, unless you let that agent send replies back automatically. An agent that has just heard from someone else only answers until you write again.
-
-
 <p align="center">
   <img src="../.github/assets/screens/desktop-group-dark.png" alt="A group chat with its checklist">
+</p>
+
+## Peer link: agents on two machines
+
+Agents on two of your computers can talk to each other, for example a build agent on a desktop and a web agent on a laptop. The two machines can be signed in to different Claude accounts. Messages go over SSH directly between them, not through a third party.
+
+<p align="center">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="../.github/assets/peer-link-dark.png"><img src="../.github/assets/peer-link-light.png" alt="Machine A calls machine B over SSH with a dedicated key; a forced command hands the messages to CC Agent there, and each side delivers them to its own agents"></picture>
+</p>
+
+- **Pair the machines once.** One machine shows a one-time code on **Admin → Peer link**, and you type it on the other. Then an admin on each side presses **Enable** and confirms with their password. Setup takes a dedicated SSH key restricted to one command; [PEER-LINK.md](PEER-LINK.md) walks through it.
+- **Open only the agents you choose.** In an agent's Agent Profile, turn on **Peer messages** and tick which agents of the other machine it may exchange messages with. Both sides must tick each other, and only full-access agents of an admin can take part.
+- **Talk in the chat you already use.** Name an agent of the other machine with `@` (listed as `machine/name` under **Another machine**), and your agent passes your words on with its `peer_send` tool; it can also write on its own for work you gave it. Its answer comes back into the same conversation. The message shows as a bubble with where it went and what became of it: queued, delivered, expired, refused or unsent. Messages from the other machine sit on the left, with that machine's icon and the agent's name.
+- **Answers wait for you.** An agent's reply to the other machine is a draft with **Send** and **Don't send** under it, unless you switch on **Send replies back automatically** for that agent.
+- **Built-in brakes.** After a message from someone else, an agent can only answer until you write again; it cannot start a new conversation on its own. Messages are words only, up to 8,000 characters, at most 30 an hour between two agents, and a pair stops after 12 back-and-forths without you. A message that waits 24 hours expires.
+
+<p align="center">
+  <img src="../.github/assets/screens/desktop-peer-chat-dark.png" alt="A conversation with a message sent to an agent on another machine, its answer, and a reply draft">
+</p>
+
+<p align="center">
+  <img src="../.github/assets/screens/desktop-peer-link-dark.png" alt="The Peer link page with a paired machine">
 </p>
 
 ## Schedules

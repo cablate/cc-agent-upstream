@@ -2,12 +2,9 @@
 
 The peer link pairs two CC Agent installations on different machines. When an admin opens an agent on each side, those agents can send each other messages. The two machines can run on different Claude accounts. Messages go over SSH between your own machines, not through a third party.
 
-```text
-Machine A (calls)                                    Machine B (answers)
-CC Agent ── every 15–20 s: ssh (dedicated key) ──▶ forced command: scripts/peer-exchange.mjs
-   ▲                                                   └─▶ 127.0.0.1:<port>/bridge/peer/exchange
-   └─ agent ⇄ peer_send / reply                        agent ⇄ peer_send / reply
-```
+<p align="center">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="../.github/assets/peer-link-dark.png"><img src="../.github/assets/peer-link-light.png" alt="How the peer link works: machine A calls machine B over SSH; a forced command hands messages to CC Agent there"></picture>
+</p>
 
 ## What you get
 

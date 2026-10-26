@@ -41,15 +41,30 @@
 - **誰來回答。** 訊息開頭用 `@` 點到的成員會收到；用 `@All` 就是全部成員；都沒點名就交給負責人。成員之間互傳的訊息也會顯示在群組裡。
 - **通知。** 只有成員在群組裡用 `@` 叫你、而且已經有結果時，才會通知你。
 
-## 跨機連線
-
-- **兩台電腦的 agent 互傳訊息。** 把兩套 CC Agent 配對起來，就算用不同的 Claude 帳號也可以。兩邊開通的 agent 會經 SSH 互傳訊息。設定方式見 [PEER-LINK.md](PEER-LINK.md)（英文）。
-- **誰能說話由你決定。** 管理員逐一開通 agent，並勾選它可以往來的另一台 agent；兩邊都要勾選。
-- **回覆先給你看。** 送回另一台的回覆預設是草稿，你按一下才送出；也可以讓某個 agent 自動送回。agent 收到別人的訊息之後，在你再次開口前只能回覆，不能主動發訊。
-
-
 <p align="center">
   <img src="../.github/assets/screens/desktop-group-dark.png" alt="群組聊天與旁邊的清單">
+</p>
+
+## 跨機連線：兩台電腦的 agent 互相對話
+
+你兩台電腦上的 agent 可以互傳訊息，例如桌機上負責建置的 agent 和筆電上負責網站的 agent。兩台可以登入不同的 Claude 帳號。訊息經 SSH 在兩台之間直接傳，不經過第三方。
+
+<p align="center">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="../.github/assets/peer-link-dark.png"><img src="../.github/assets/peer-link-light.png" alt="電腦 A 用專用金鑰經 SSH 呼叫電腦 B；B 那邊限定用途的指令把訊息交給 CC Agent，兩邊各自送給自己的 agent"></picture>
+</p>
+
+- **兩台電腦配對一次。** 一台在「管理 → 跨機連線」產生一次性的配對碼，在另一台輸入。接著兩邊的管理員各按一次「啟用」，並用密碼確認。設定時需要一把只能執行一個指令的專用 SSH 金鑰，步驟見 [PEER-LINK.md](PEER-LINK.md)（英文）。
+- **只開通你選的 agent。** 在 agent 的 Agent Profile 打開「跨機傳訊」，勾選它可以往來的另一台 agent。兩邊都要勾選對方，而且只有管理員的完整權限 agent 可以加入。
+- **在原本的對話裡往來。** 用 `@` 點另一台的 agent（列在「另一台電腦」底下，名稱是「電腦/agent」），你的 agent 就會用 `peer_send` 工具把話轉過去；為了你交辦的工作，它也可以自己傳。對方的回答會回到同一個對話。送出的訊息會顯示送到哪裡、目前狀態：排隊中、已送達、過期、被拒或沒送出。另一台傳來的訊息在左側，帶著那台電腦的圖示和 agent 名稱。
+- **回覆先給你看。** agent 送回另一台的回覆預設是草稿，下面有「送出」和「不送」；也可以替某個 agent 打開「自動送回回覆」。
+- **內建煞車。** 收到別人的訊息之後，在你再次開口前，agent 只能回覆，不能自己開新話題。訊息只有文字，最多 8,000 字；兩個 agent 之間每小時最多 30 則；你沒開口時來回 12 次就停；排隊超過 24 小時就過期。
+
+<p align="center">
+  <img src="../.github/assets/screens/desktop-peer-chat-dark.png" alt="對話裡傳給另一台 agent 的訊息、對方的回答，以及一則回覆草稿">
+</p>
+
+<p align="center">
+  <img src="../.github/assets/screens/desktop-peer-link-dark.png" alt="跨機連線頁面與已配對的電腦">
 </p>
 
 ## 排程
