@@ -80,6 +80,15 @@
 
       <!-- Main: 3 tab views + segmented bottom tabbar -->
       <f7-views tabs class="safe-areas">
+        <!-- A phone held sideways: a rail of its own on the right, with the same tabs; the
+             bottom bar below stays exactly as it is, only hidden there, so turning upright
+             gives it back untouched. -->
+        <nav v-show="!embedded&&!(active==='view-chat' && (workspace.selected.value||workspace.atStart.value))&&!(active==='view-groups' && viewingGroup)" ref="railRef" class="landscape-rail" @pointerdown="railDown" @pointermove="railMove" @pointerup="railUp" @pointercancel="railCancel">
+          <a v-for="tb in tabs" :key="tb.id" class="landscape-rail-tab" :class="{ active: (railHover || active) === tb.id }" :data-rail-tab="tb.id" href="#" :aria-label="t(tb.labelKey)" @click.prevent>
+            <i class="icon" :class="tb.iconClass">{{ tb.icon }}</i>
+            <span v-if="tb.id === 'view-chat' && unreadTotal" class="badge color-red rail-unread">{{ unreadLabel(unreadTotal) }}</span>
+          </a>
+        </nav>
         <div v-show="!embedded&&!(active==='view-chat' && (workspace.selected.value||workspace.atStart.value))&&!(active==='view-groups' && viewingGroup)" class="toolbar-layout-wrapper toolbar-menu">
           <div class="toolbar-views__toolbar-sticky__bg"></div>
           <div class="toolbar-views__toolbar-sticky__gradient-bg"></div>
@@ -220,6 +229,53 @@ const tabs = computed(() => ALL_TABS.filter((tb) => !tb.admin || isAdmin.value))
 // Shared across pages so navigation never leaves the App-level highlight behind.
 const active = activeTab;
 const segRef = ref(null);
+// The sideways rail: a tap picks a tab; a finger sliding along it lights the tab under it
+// and picks that one when lifted, as the bottom bar's own swipe does.
+const railRef = ref(null), railHover = ref('');
+let railPress = null;
+const railTabAt = (e) => document.elementFromPoint(e.clientX, e.clientY)?.closest?.('[data-rail-tab]')?.dataset.railTab || '';
+// The page follows the finger as it slides, as it does on the bottom bar; a tap without sliding acts as a tap on the bar does.
+function railDown(e) { railPress = { id: e.pointerId, from: railTabAt(e), slid: false };try { railRef.value?.setPointerCapture(e.pointerId); } catch {} railHover.value = railPress.from; }
+function railMove(e) {
+  if (railPress?.id !== e.pointerId) return;
+  const id = railTabAt(e);if (!id || id === railHover.value) return;
+  railHover.value = id;railPress.slid = true;
+  if (id !== active.value) setActiveTab(id);
+}
+function railUp(e) {
+  if (railPress?.id !== e.pointerId) return;
+  const id = railTabAt(e) || railHover.value, slid = railPress.slid;railPress = null;railHover.value = '';
+  if (!id) return;
+  if (!slid) selectTab(id);else if (id !== active.value) setActiveTab(id);
+}
+function railCancel() { railPress = null;railHover.value = ''; }
+// Turned around, iOS can leave the page scrolled a little or the bottom bar's touch area
+// where it was before the turn: it looks right but takes no taps. After each turn the page is put back to the top and the bar laid out
+// afresh, twice, as the turn settles.
+// iOS (a home-screen app) can come out of a turn drawing the page below the status bar
+// while telling it the top inset is 0, so every tap lands one row off. Setting the viewport again makes it
+// work the insets out afresh.
+function reapplyViewport() {
+  const meta = document.querySelector('meta[name="viewport"]');if (!meta) return;
+  const content = meta.getAttribute('content') || '';
+  meta.setAttribute('content', content.replace(/,?\s*viewport-fit=cover/, ''));
+  requestAnimationFrame(() => meta.setAttribute('content', content));
+}
+function settleAfterTurn() {
+  try { window.scrollTo(0, 0);document.documentElement.scrollTop = 0;document.body.scrollTop = 0; } catch {}
+  const bar = document.querySelector('.toolbar-layout-wrapper');
+  if (bar) { const was = bar.style.display;bar.style.display = 'none';void bar.offsetHeight;bar.style.display = was; }
+  positionHighlight();
+  // What sizes itself to the screen (the app's frame, a conversation's composer) is told
+  // again once the turn has settled: iOS can send its resize before the new size is known.
+  try { window.dispatchEvent(new Event('resize'));window.visualViewport?.dispatchEvent(new Event('resize')); } catch {}
+}
+if (typeof window !== 'undefined') {
+  let lastShape = window.innerWidth > window.innerHeight;
+  const turned = () => { const shape = window.innerWidth > window.innerHeight;if (shape === lastShape) return;lastShape = shape;setTimeout(reapplyViewport, 250);setTimeout(settleAfterTurn, 120);setTimeout(settleAfterTurn, 700); };
+  window.addEventListener('orientationchange', turned);
+  window.addEventListener('resize', turned);
+}
 const presenceHeartbeat = createPresenceHeartbeat({
   ping: () => api('/auth/me'),
 });

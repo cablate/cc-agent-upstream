@@ -705,3 +705,76 @@ html .ios .toast.toast-bottom {bottom:var(--viewport-overflow,0px);}
 .cc-app .ant-icon > .f7-icons {
   transform: scale(0.82);
 }
+
+/* A phone held sideways (short, and not wide enough for the computer's layout): a rail
+   of icons on the right (App.vue .landscape-rail) instead of the bottom bar, which is
+   only hidden, never rearranged, so it works as before once upright; the pages sit
+   between the notch insets and the rail. */
+.cc-app .landscape-rail { display: none; }
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 1023px) {
+  .cc-app .toolbar-layout-wrapper {
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .cc-app .toolbar-layout-wrapper * { pointer-events: none !important; }
+  .cc-app .landscape-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    position: absolute;
+    top: 50%;
+    right: calc(8px + var(--f7-safe-area-right, 0px));
+    transform: translateY(-50%);
+    z-index: 5002;
+    width: 60px;
+    padding: 4px 0;
+    align-items: center;
+    border-radius: 30px;
+    background-color: var(--dp-glass-dark-fill);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    box-shadow:
+      var(--dp-glass-ring) 2px 2px 2px -2px inset,
+      var(--dp-glass-ring) -2px -2px 2px -2px inset,
+      var(--dp-glass-ring) 0 0 1px 0 inset,
+      var(--dp-shadow-soft) 0 7px 29px;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .cc-app .landscape-rail-tab {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 46px;
+    border-radius: 23px;
+    color: var(--dp-color-text-secondary);
+  }
+  .cc-app .landscape-rail-tab.active {
+    background: var(--dp-state-selected);
+    color: var(--dp-color-text-on-dark);
+  }
+  .cc-app .landscape-rail-tab i.icon { font-size: 24px; }
+  .cc-app .rail-unread { position: absolute; top: 3px; right: 3px; min-width: 16px; height: 16px; font-size: 10px; padding: 0 4px; }
+  /* Clear of the notch on both sides (it is on the left or the right, as the phone is
+     turned): the pages sit between the left inset and the rail, and inside them nothing
+     adds the insets again (the app's own cards would otherwise run under the notch). */
+  .cc-app .views:has(> .landscape-rail:not([style*="display: none"])) {
+    --cc-inset-left: var(--f7-safe-area-left, 0px);
+    --cc-inset-right: var(--f7-safe-area-right, 0px);
+  }
+  .cc-app .views:has(> .landscape-rail:not([style*="display: none"])) > .view {
+    left: var(--cc-inset-left);
+    width: calc(100% - 76px - var(--cc-inset-left) - var(--cc-inset-right)) !important;
+    right: auto;
+    --f7-safe-area-left: 0px;
+    --f7-safe-area-right: 0px;
+    --f7-safe-area-outer-left: 0px;
+    --f7-safe-area-outer-right: 0px;
+  }
+  .cc-app .page-content {
+    padding-bottom: calc(16px + var(--f7-safe-area-bottom, 0px));
+  }
+}
