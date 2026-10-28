@@ -151,6 +151,11 @@ CC Agent 目前只在 Apple 晶片的 macOS 上部署過。要在其他系統上
 
 大部分產品自己的值（儲存名稱、標籤、設定）集中在 `server/siteConfig.js`、`src/js/productConfig.js`、`public/push-config.js`。要完整換成你自己的品牌，還要換 `public/` 的圖示、`index.html` 的名稱、`vite.config.js` 的 PWA manifest 與 `public/reset-sw.html`，以及介面文字裡出現產品名稱的地方。
 
+## 相關專案
+
+- **[castpane](https://github.com/xxxxDev/castpane)**：在瀏覽器裡看並操作你的 Mac，手機或另一台電腦都可以。Mac 裝一個 App，手機不用裝任何東西，一個網頁還能看多台 Mac。
+- **[agent-courier](https://github.com/xxxxDev/agent-courier)**：讓你自己幾台電腦上的一般 Claude Code session 透過 SSH 互傳訊息，就像 CC Agent 的跨機連線之於它的 agent。
+
 ## 安全
 
 agent 用你的使用者權限執行。完整權限的 agent 能在那台電腦上做任何你能做的事，所以只把完整權限給你願意交出終端機的 agent。限定範圍的 agent 有 Claude Code 沙盒和 CC Agent 自己的檢查，但沒有沙盒是完美的。把 CC Agent 開放到網路上之前，請先讀 [SECURITY.md](SECURITY.md)，回報漏洞也照那裡的方式。

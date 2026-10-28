@@ -131,3 +131,4 @@ Agents on two of your computers can talk to each other, for example a build agen
 - **Push notifications** when an agent replies or a schedule finishes.
 - **Updates** are noticed within seconds of a new build being served, and offered without reloading under you.
 - **Light and dark themes**, English and Traditional Chinese.
+- **The computer's own screen** is not part of CC Agent: to see and control a Mac from a phone, use [castpane](https://github.com/xxxxDev/castpane).

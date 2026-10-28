@@ -151,6 +151,11 @@ This is an open-source base. It does one thing well: it runs Claude Code agents 
 
 Most of the product's own values (storage keys, labels, settings) live in `server/siteConfig.js`, `src/js/productConfig.js` and `public/push-config.js`. To rebrand it fully, also change the icons in `public/`, the name in `index.html`, the PWA manifest in `vite.config.js` and `public/reset-sw.html`, and the product name where it appears in interface text.
 
+## Related projects
+
+- **[castpane](https://github.com/xxxxDev/castpane)**: see and control your Mac from a phone or another computer, in the browser. One Mac app, nothing to install on the phone, several Macs in one web app.
+- **[agent-courier](https://github.com/xxxxDev/agent-courier)**: messages between plain Claude Code sessions on your own machines, over SSH, as CC Agent's peer link does for its agents.
+
 ## Security
 
 Agents run with your user's permissions. A full-access agent can do anything you can do on that machine, so only grant full access to agents you would trust with your terminal. Scoped agents are fenced by Claude Code's sandbox and CC Agent's own checks, but no sandbox is perfect. Please read [SECURITY.md](SECURITY.md) before exposing CC Agent to the internet, and report vulnerabilities as described there.
