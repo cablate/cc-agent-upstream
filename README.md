@@ -136,8 +136,8 @@ On the first start it creates its data folder (`.local/`), its own secrets and p
 So far CC Agent has only been deployed on macOS with Apple silicon. If you run it on another system, please verify it yourself. Some notes to start from:
 
 - **Linux:** install a C++ build toolchain before `npm install`. node-pty, used by the terminal view, ships no prebuilt binary for Linux and is compiled on install.
-- **Windows:** run it inside WSL. tmux has no native Windows version.
-- **macOS-only parts:** background scripts in schedules run in the macOS sandbox, and the Claude usage meter reads Claude Code's login from the macOS Keychain. Elsewhere, these two do not work yet.
+- **Windows (experimental):** it runs natively on Windows 11 with [psmux](https://psmux.pages.dev) in place of tmux (`scoop install psmux` puts a `tmux.exe` on your PATH), or inside WSL. Natively you need a native `claude.exe` installation; the npm `claude.cmd` alone cannot start an agent. You also need [Git for Windows](https://git-scm.com/download/win): Claude Code runs its shell tool through Git's `bash.exe`, which CC Agent finds by itself (or set `CLAUDE_CODE_GIT_BASH_PATH`). The difference there: only **full-access** agents run, and a new agent starts with full access. Claude Code has no sandbox on Windows, so a scoped agent refuses to start and says why.
+- **macOS-only parts:** background scripts in schedules run in the macOS sandbox, and the Claude usage meter reads Claude Code's login from the macOS Keychain (on Windows, from `~/.claude/.credentials.json`). Elsewhere, these two do not work yet.
 
 If you get it running somewhere new, an issue describing what you had to change is welcome.
 

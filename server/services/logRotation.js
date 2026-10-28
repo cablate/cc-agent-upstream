@@ -14,6 +14,8 @@ const {
   ensurePrivateDirectory,
   PRIVATE_FILE_MODE,
 } = require('./privateFiles');
+// Windows has no O_NOFOLLOW; the descriptor identity checks stand in for it there.
+const { isWin } = require('../../channel/platform.cjs');
 
 const ROTATE_AFTER_DAYS = 7;
 const RETENTION_DAYS = 365;
@@ -62,7 +64,8 @@ function sameFile(left, right) {
 // regular file lstat inspected. Return both the timestamp and a safe reason.
 function firstLineTimeMs(filePath, expectedInfo) {
   const noFollow = fs.constants.O_NOFOLLOW;
-  if (!Number.isInteger(noFollow)) return { stamp: null, reason: 'nofollow_unavailable' };
+  // Refuse without no-follow on POSIX: opening must not traverse a substituted link.
+  if (!Number.isInteger(noFollow) && !isWin) return { stamp: null, reason: 'nofollow_unavailable' };
   let fd;
   try {
     fd = fs.openSync(filePath, fs.constants.O_RDONLY | noFollow);
@@ -101,7 +104,7 @@ function firstLineTimeMs(filePath, expectedInfo) {
 
 function hardenRegularNoFollow(filePath) {
   const noFollow = fs.constants.O_NOFOLLOW;
-  if (!Number.isInteger(noFollow)) throw new Error('O_NOFOLLOW is unavailable');
+  if (!Number.isInteger(noFollow) && !isWin) throw new Error('O_NOFOLLOW is unavailable');
   const before = fs.lstatSync(filePath);
   if (before.isSymbolicLink() || !before.isFile()) {
     throw new Error(`log path is not a regular file: ${filePath}`);
@@ -120,7 +123,7 @@ function hardenRegularNoFollow(filePath) {
 
 function createOrOpenPrivateLog(filePath) {
   const noFollow = fs.constants.O_NOFOLLOW;
-  if (!Number.isInteger(noFollow)) throw new Error('O_NOFOLLOW is unavailable');
+  if (!Number.isInteger(noFollow) && !isWin) throw new Error('O_NOFOLLOW is unavailable');
   const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT
     | fs.constants.O_APPEND | noFollow;
   const fd = fs.openSync(filePath, flags, PRIVATE_FILE_MODE);

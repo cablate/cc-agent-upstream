@@ -136,8 +136,8 @@ npm start
 CC Agent 目前只在 Apple 晶片的 macOS 上部署過。要在其他系統上執行，請自行驗證。以下幾點可以當起點：
 
 - **Linux：** `npm install` 之前先裝好 C++ 編譯工具。終端機檢視用的 node-pty 沒有 Linux 的現成版本，安裝時會現場編譯。
-- **Windows：** 請在 WSL 裡執行，因為 tmux 沒有原生 Windows 版。
-- **只能在 macOS 用的部分：** 排程的背景腳本在 macOS 沙盒裡執行；Claude 用量從 macOS 鑰匙圈讀 Claude Code 的登入。在其他系統上，這兩項目前還不能用。
+- **Windows（實驗性）：** 可以在 Windows 11 原生執行，用 [psmux](https://psmux.pages.dev) 取代 tmux（`scoop install psmux` 會把 `tmux.exe` 放進 PATH），也可以在 WSL 裡執行。原生執行需要原生安裝的 `claude.exe`，只有 npm 的 `claude.cmd` 無法啟動 agent。另外還需要 [Git for Windows](https://git-scm.com/download/win)：Claude Code 的 shell 工具要透過 Git 的 `bash.exe` 執行，CC Agent 會自己找到它（也可以用 `CLAUDE_CODE_GIT_BASH_PATH` 指定）。Windows 上的差異：只能執行**完整權限**的 agent，新建的 agent 也預設完整權限。Windows 上的 Claude Code 沒有沙盒，限定範圍的 agent 會拒絕啟動並說明原因。
+- **只能在 macOS 用的部分：** 排程的背景腳本在 macOS 沙盒裡執行；Claude 用量從 macOS 鑰匙圈讀 Claude Code 的登入（Windows 上改讀 `~/.claude/.credentials.json`）。在其他系統上，這兩項目前還不能用。
 
 如果你在新的系統上跑起來了，歡迎開 issue 分享需要改哪些地方。
 

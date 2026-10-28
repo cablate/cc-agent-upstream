@@ -48,8 +48,9 @@
    <!-- Offered only where the server allows it: an agent an admin owns. -->
    <!-- What full access means is a hint on the row, shown on hover. -->
    <f7-list v-if="allowFull" inset strong-ios class="agent-full" :title="ct('完整權限：這個 Agent 不受範圍限制，讀寫得到這台電腦上你的帳號能碰到的一切，包括金鑰和所有人的對話。只替需要的 Agent 打開。')">
-    <f7-list-item ><template #title>{{ct('完整權限')}}<small class="full-flag">（--dangerously-skip-permissions）</small></template><template #after><f7-toggle :checked="!!modelValue.access?.full" @toggle:change="setFull"/></template></f7-list-item>
+    <f7-list-item ><template #title>{{ct('完整權限')}}<small class="full-flag">（--dangerously-skip-permissions）</small></template><template #after><f7-toggle :checked="!!modelValue.access?.full" :disabled="scopedAgents===false&&!!modelValue.access?.full" @toggle:change="setFull"/></template></f7-list-item>
    </f7-list>
+   <f7-block-footer v-if="allowFull&&scopedAgents===false">{{ct('這台伺服器（Windows）只支援完整權限。')}}</f7-block-footer>
    <f7-list v-if="!(allowFull&&modelValue.access?.full)" inset strong-ios class="agent-access">
     <f7-list-input :label="ct('允許的資料夾')" type="textarea" :value="raw.allow" @update:value="setLines('allow',$event)" :placeholder="ct('每行一個，例如 ~/Desktop/project')" :resizable="true" rows="2"/>
     <f7-list-input :label="ct('排除的資料夾')" type="textarea" :value="raw.exclude" @update:value="setLines('exclude',$event)" :placeholder="ct('允許範圍裡要擋掉的資料夾')" :resizable="true" rows="2"/>
@@ -88,7 +89,7 @@
 </template>
 <script setup>
 import {computed,reactive,ref,watch} from 'vue';import {api} from '../js/api.js';import {ct} from '../js/agent-i18n.js';
-import {preferencesLoaded} from '../js/agentPreferences.js';
+import {preferencesLoaded,scopedAgents} from '../js/agentPreferences.js';
 // What a folded field says about itself: how much is in it.
 const lengthLabel=text=>{const n=Array.from(String(text||'')).length;return n?n.toLocaleString()+' '+ct('字'):ct('未填');};
 import {models,efforts,modelLabel,effortLabel} from '../js/agent-models.js';
