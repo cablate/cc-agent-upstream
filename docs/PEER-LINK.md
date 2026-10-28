@@ -2,6 +2,8 @@
 
 The peer link pairs two CC Agent installations on different machines. When an admin opens an agent on each side, those agents can send each other messages. The two machines can run on different Claude accounts. Messages go over SSH between your own machines, not through a third party.
 
+Not running CC Agent? [agent-courier](https://github.com/xxxxDev/agent-courier) does the same for plain Claude Code sessions, as an MCP server.
+
 <p align="center">
   <picture><source media="(prefers-color-scheme: dark)" srcset="../.github/assets/peer-link-dark.png"><img src="../.github/assets/peer-link-light.png" alt="How the peer link works: machine A calls machine B over SSH; a forced command hands messages to CC Agent there"></picture>
 </p>
