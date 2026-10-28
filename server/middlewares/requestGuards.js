@@ -27,7 +27,8 @@ const alwaysAllowedOrigins = [site.publicOrigin()];
 // so they are NOT trusted in production. But the SPA is served at localhost
 // during local dev and cors() gates its GETs too, so removing them in dev would
 // break local dev entirely — hence the env split, not a plain deletion.
-const devOnlyOrigins = site.loopbackPorts().flatMap((port) => [`http://localhost:${port}`, `http://127.0.0.1:${port}`]);
+// Asked at each request: whether the dev ports count (siteConfig.devMode) can change.
+const devOnlyOrigins = () => site.loopbackPorts().flatMap((port) => [`http://localhost:${port}`, `http://127.0.0.1:${port}`]);
 
 // Private-range LAN origins. The Host check (siteConfig.isAllowedHost) admits only
 // the public host and loopback, so a request sent to a LAN address never gets here;
@@ -38,7 +39,7 @@ const LAN_HOST = '(?:10\\.\\d+\\.\\d+\\.\\d+|172\\.(?:1[6-9]|2\\d|3[01])\\.\\d+\
 const privateLanProd = new RegExp(`^https?://${LAN_HOST}:${SERVING_PORT}$`);
 // Dev: the vite dev server, the service and a throwaway instance (siteConfig) — not any port, which let a page served from anywhere on the LAN make
 // credentialed requests here.
-const privateLanDev = new RegExp(`^https?://${LAN_HOST}:(?:${[site.DEV_PORT, ...site.loopbackPorts()].join('|')})$`);
+const privateLanDev = () => new RegExp(`^https?://${LAN_HOST}:(?:${[...new Set([...site.devPorts(), ...site.loopbackPorts()])].join('|')})$`);
 
 // Passkeys belong to the public address alone: a key made for localhost would be the
 // same key on every machine and port, and anything serving a page there could ask
@@ -59,7 +60,7 @@ function isAllowedOrigin(origin) {
   if (process.env.NODE_ENV === 'production') {
     return privateLanProd.test(origin);
   }
-  return devOnlyOrigins.includes(origin) || privateLanDev.test(origin);
+  return devOnlyOrigins().includes(origin) || privateLanDev().test(origin);
 }
 
 // GET/HEAD are never gated, so the SSE stream (GET /api/schedules/stream) is

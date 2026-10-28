@@ -31,6 +31,8 @@ const PRODUCT = Object.freeze({
   env: Object.freeze({
     auditLog: 'CC_AGENT_AUDIT_LOG',
     passkeyTestOrigin: 'CC_AGENT_PASSKEY_TEST_ORIGIN',
+    // Set to 1 while developing (the vite dev server, a throwaway test instance).
+    dev: 'CC_AGENT_DEV',
     distDir: 'CC_AGENT_DIST_DIR',
     // scripts/sign-in-rescue.mjs: the data folder, else .local under the project.
     dataDir: 'CC_AGENT_DATA_DIR',
@@ -61,6 +63,12 @@ const PRODUCT = Object.freeze({
 });
 // A throwaway test instance and the vite dev server.
 const TEST_PORT = 4281, DEV_PORT = 4279;
+// Their ports are trusted only while developing: CC_AGENT_DEV=1 and NODE_ENV not
+// production. Otherwise any program on this machine that serves a page on one of those
+// ports would be a trusted origin: credentialed CORS, the CSRF cookie read back, the
+// account's own actions taken in its name.
+const devMode = () => process.env[PRODUCT.env.dev] === '1' && process.env.NODE_ENV !== 'production';
+const devPorts = () => (devMode() ? [TEST_PORT, DEV_PORT] : []);
 
 function servicePort() {
   const raw = process.env.CC_AGENT_PORT;
@@ -87,7 +95,8 @@ function publicOrigin() {
 const publicHost = () => new URL(publicOrigin()).host;
 
 // Loopback ports a request may name as its Host: the service and a test instance.
-const loopbackPorts = () => [...new Set([servicePort(), TEST_PORT])];
+// (and while developing a test instance).
+const loopbackPorts = () => [...new Set([servicePort(), ...(devMode() ? [TEST_PORT] : [])])];
 const loopbackHosts = (ports) => ports.flatMap((p) => [`127.0.0.1:${p}`, `localhost:${p}`]);
 
 // The Host header a request may carry. Anything else is refused (app.js).
@@ -97,11 +106,11 @@ const isHttpsHost = (host) => host === publicHost();
 
 // The pages a live-update or terminal socket may come from: the public address, and on
 // this machine the service, the vite dev server and a test instance.
-const socketOrigins = () => new Set([publicOrigin(), ...loopbackHosts([...loopbackPorts(), DEV_PORT]).map((h) => 'http://' + h)]);
+const socketOrigins = () => new Set([publicOrigin(), ...loopbackHosts([...new Set([servicePort(), ...devPorts()])]).map((h) => 'http://' + h)]);
 // Both the Origin and the Host are checked, the Host as the page would have named it.
 const isAllowedSocket = (req) => {
   const origins = socketOrigins(), host = req.headers.host;
   return origins.has(req.headers.origin) && origins.has((isHttpsHost(host) ? 'https://' : 'http://') + host);
 };
 
-module.exports = { PRODUCT, DEV_PORT, TEST_PORT, servicePort, publicOrigin, publicHost, loopbackPorts, isAllowedHost, isHttpsHost, socketOrigins, isAllowedSocket };
+module.exports = { PRODUCT, DEV_PORT, TEST_PORT, devMode, devPorts, servicePort, publicOrigin, publicHost, loopbackPorts, isAllowedHost, isHttpsHost, socketOrigins, isAllowedSocket };
