@@ -3,6 +3,8 @@ const jwt=require('jsonwebtoken');
 const {resolveLivePrincipal}=require('./services/livePrincipal');
 const agents=require('./agentStore');
 const agentEnv=require('../channel/agentEnv.cjs');
+const platform=require('../channel/platform.cjs');
+const runtimeTools=require('../channel/runtimeTools.cjs');
 const {audit}=require('./services/audit');
 const {resolveClientIp}=require('./services/clientIp');
 // One PTY per browser attachment. It runs only `tmux attach-session`, never Claude.
@@ -24,6 +26,7 @@ const {execFileSync}=require('node:child_process');
 // 3.8 client), while starting sessions still works. Any other
 // answer (no server, its program gone, not named tmux) leaves the one on PATH.
 function serverTmux(socket){
+ if(platform.isWin)return runtimeTools.resolveOnPath('tmux')?.path||'tmux.exe';
  try{
   socket=socket||require('./agentStore').tmuxSocket;
   const pid=execFileSync('tmux',['-L',socket,'list-sessions','-F','#{pid}'],{encoding:'utf8',timeout:2000,stdio:['ignore','pipe','ignore']}).trim().split('\n')[0];

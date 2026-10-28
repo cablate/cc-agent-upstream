@@ -231,6 +231,7 @@ const english = {
 "Agent 設定由管理員調整；如需變更，請聯絡 CC Agent 管理員。":"An admin sets up this agent; to change it, contact your CC Agent admin.",
 "關閉 Agent Profile":"Close Agent Profile",
 "完整權限":"Full access",
+"這台伺服器（Windows）只支援完整權限。":"This server (Windows) supports full access only.",
 "匯入 JSON":"Import JSON",
 "貼上 session 產出的 JSON，或選擇 .json 檔":"Paste the JSON a session produced, or choose a .json file",
 "帶入欄位":"Fill in",
@@ -661,6 +662,7 @@ const english = {
   "角色": "Roles",
   "我": "Me",
   "找不到這個對話": "This conversation was not found",
+  "Windows 上的 Claude Code 沒有沙盒，無法限制 Agent 的範圍，因此只能執行「完整權限」的 Agent。請由管理員在 Agent Profile 開啟完整權限後再啟動。": "Claude Code has no sandbox on Windows to limit an agent's scope, so only full-access agents can run. Ask an admin to turn on full access in its Agent Profile, then start it.",
   "帳號已停用": "Disabled",
   "拖曳調整順序": "Drag to reorder",
   

@@ -14,6 +14,7 @@ const agentEnv=require('../channel/agentEnv.cjs');
 const agentAccess=require('./agentAccess');
 const unsandboxedCommands=require('../channel/unsandboxedCommands.cjs');
 const runtimeTools=require('../channel/runtimeTools.cjs');
+const platform=require('../channel/platform.cjs');
 const ROOT = path.resolve(__dirname, '..');
 // A test that names no data folder gets a new empty one, never this repository's live
 // .local and, with it, the live tmux socket (a second
@@ -523,11 +524,12 @@ function launch(c) {
  if(['starting','ready','busy','handing-off'].includes(g.phase)&&g.heartbeat>Date.now()-15000)return;
  const dir=path.join(stateRoot,'workspaces',c.id,'g'+g.number);fs.mkdirSync(dir,{recursive:true,mode:0o700});fs.mkdirSync(referenceDir(c),{recursive:true,mode:0o700});
  const access=launchAccess(c);
+ if(platform.isWin&&!access.full)throw error(platform.SCOPED_UNSUPPORTED);
  const model=agentProfile.fit(agentProfile.profile(c).model);
  // Its own chat's attachments, readable where it runs scoped (a file the owner sent could not be opened).
  const attachDir=attachments.directory(stateRoot,c);fs.mkdirSync(attachDir,{recursive:true,mode:0o700});
  // Only these keys: channel/runner.mjs refuses any unsupported launch key.
- const config={tmuxSocket,agentStarter:agentStarter(c),peerSend:peerToolsFor(c),reference:referenceDir(c),attachments:attachDir,conversationId:c.id,sessionId:g.sessionId,token:g.token,generation:g.number,server:'http://127.0.0.1:'+require('./siteConfig').servicePort(),root:ROOT,cwd:dir,resume:g.number===1&&!!c.resumeSessionId,memory:c.memory,profile:agentProfile.profile(c),model,effort:agentProfile.profile(c).effort,handoff:c.handoff||null,access,...(ownerIsActiveAdmin(c.owner)?{}:{mcpTickedOnly:true})};
+ const config={tmuxSocket,...(platform.isWin?{tmux:g.tmux}:{}),agentStarter:agentStarter(c),peerSend:peerToolsFor(c),reference:referenceDir(c),attachments:attachDir,conversationId:c.id,sessionId:g.sessionId,token:g.token,generation:g.number,server:'http://127.0.0.1:'+require('./siteConfig').servicePort(),root:ROOT,cwd:dir,resume:g.number===1&&!!c.resumeSessionId,memory:c.memory,profile:agentProfile.profile(c),model,effort:agentProfile.profile(c).effort,handoff:c.handoff||null,access,...(ownerIsActiveAdmin(c.owner)?{}:{mcpTickedOnly:true})};
  const control=controlDir(c,g);fs.mkdirSync(control,{recursive:true,mode:0o700});
  // Earlier launches kept these in the workspace; nothing reads them there any more.
  // A marker left there still means the session has started: carried over as a new
@@ -538,7 +540,7 @@ function launch(c) {
  // Written to a new file and renamed into place, so a link made to an earlier copy
  // never sees this one.
  const configPath=path.join(control,'runtime.json');writeFresh(configPath,JSON.stringify(config));
- const quote=s=>"'"+s.replace(/'/g,"'\\''")+"'";
+ const quote=platform.paneQuote;
  try {
   execFileSync('tmux',['-L',tmuxSocket,'has-session','-t',g.tmux],{stdio:'ignore',timeout:2000});
   throw error('此對話程序仍存在；請先暫停，再重新連線。',409);
@@ -975,8 +977,8 @@ function fileBlocked(c,g){
 // Messages between agents' sessions, shown in both chats: one that arrived, with who sent it, pushed to the owner; one this
 // agent sent, with whom to. Only what happens from the first look on: the history
 // an agent already had is not replayed into its chat.
-// The sender is one of the owner's agents only when its socket is in that agent's
-// runtime folder; the name a session gives is its own claim and never enough. Whom this agent sent to is its own choice of words, so a
+// The sender is one of the owner's agents when its socket is in that agent's
+// runtime folder, or on Windows when it is the address that agent's current generation registered; the name a session gives is its own claim and never enough. Whom this agent sent to is its own choice of words, so a
 // send may also be matched by the agent's title.
 // That folder (channel/runner.mjs): /tmp/cca-<uid>/<8>-g<n> for a scoped agent;
 // /tmp/cca-<8>-g<n>, or cca-<8>-g<n> under this server's TMPDIR, for a
@@ -990,14 +992,27 @@ function socketAgentId(from){
  if(!m||m[1].split('/').includes('..'))return undefined;
  let real;try{real=fs.realpathSync.native(m[1]);}catch{return undefined;}
  let serverTmp=null;try{serverTmp=fs.realpathSync.native(require('node:os').tmpdir());}catch{}
- const folders=[`/private/tmp/cca-${process.getuid()}/([0-9a-f]{8})-g\\d+`,'/private/tmp/cca-([0-9a-f]{8})-g\\d+',...(serverTmp?[`${escapeRe(serverTmp)}/cca-([0-9a-f]{8})-g\\d+`]:[])];
+ const folders=[`/private/tmp/cca-${platform.isWin?undefined:process.getuid()}/([0-9a-f]{8})-g\\d+`,'/private/tmp/cca-([0-9a-f]{8})-g\\d+',...(serverTmp?[`${escapeRe(serverTmp)}/cca-([0-9a-f]{8})-g\\d+`]:[])];
  for(const folder of folders){const hit=new RegExp(`^${folder}/cc-socks/${SOCKET_FILE}$`).exec(real);if(hit)return hit[1];}
  return undefined;
 }
+const isAddress=s=>String(s||'').startsWith('uds:');
+// On Windows there is no socket file to go by: an address is a named pipe
+// (uds:\\.\pipe\LOCAL\cc-msg-<hash>). Claude Code names it to what it starts in
+// CLAUDE_CODE_MESSAGING_SOCKET, so the channel a generation started sends it with
+// bootstrap, ready and poll, and the generation keeps it (g.address). Only an agent's
+// current generation counts, and only when no other agent has the same address.
+function registerAddress(c,g,address){if(typeof address!=='string'||!address||address.length>300||/[\0\r\n]/.test(address)||g.address==='uds:'+address)return;g.address='uds:'+address;save(c);}
+function addressAgent(c,address){
+ if(!isAddress(address))return null;
+ const hits=state.conversations.filter(x=>x.owner===c.owner&&!x.archived&&x.mode==='claude'&&active(x)?.address===address);
+ return hits.length===1?hits[0]:null;
+}
+function windowsPeer(c,r){return r.direction==='in'?addressAgent(c,r.from):state.conversations.find(x=>x.owner===c.owner&&!x.archived&&x.title===r.name)||addressAgent(c,r.name);}
 function relayPeer(c,r){
  const id=socketAgentId(r.from);
- const peer=id?state.conversations.find(x=>x.owner===c.owner&&x.id.startsWith(id)):r.direction==='out'?state.conversations.find(x=>x.owner===c.owner&&!x.archived&&x.title===r.name):null;
- return peer?{peerId:peer.id,peerName:peer.title}:{peerId:null,peerName:r.name||'另一個 session'};
+ const peer=id?state.conversations.find(x=>x.owner===c.owner&&x.id.startsWith(id)):platform.isWin?windowsPeer(c,r):r.direction==='out'?state.conversations.find(x=>x.owner===c.owner&&!x.archived&&x.title===r.name):null;
+ return peer?{peerId:peer.id,peerName:peer.title}:{peerId:null,peerName:platform.isWin&&isAddress(r.name)?'另一個 session':r.name||'另一個 session'};
 }
 // A message from outside the group an agent works for, once handed to it, is other work.
 function leaveGroupFor(c,r,peerId){
@@ -1244,7 +1259,7 @@ const prompts=new Map();
 function syncTerminalPrompt(c){
  const g=active(c);if(!g.tmux)return;
  let prompt=null;
- try{prompt=terminalPrompt.parse(execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-pt',g.tmux],{encoding:'utf8',timeout:1000}));}catch{}
+ try{prompt=terminalPrompt.parse(execFileSync('tmux',['-L',tmuxSocket,'capture-pane',...platform.CAPTURE,g.tmux],{encoding:'utf8',timeout:1000}));}catch{}
  if(prompt&&prompt.options.length<2)prompt=null;
  const old=prompts.get(c.id);
  if(!prompt||old?.session!==g.sessionId&&old){prompts.delete(c.id);}
@@ -1258,7 +1273,7 @@ function syncTerminalPrompt(c){
 // The owner's choice in that menu, only if the same menu is still on the screen.
 function chooseTerminalOption(c,data){
  const g=active(c);if(c.mode!=='claude')throw error('只有真實 Claude 有終端機。',403);
- const prompt=terminalPrompt.parse(execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-pt',g.tmux],{encoding:'utf8',timeout:2000}));
+ const prompt=terminalPrompt.parse(execFileSync('tmux',['-L',tmuxSocket,'capture-pane',...platform.CAPTURE,g.tmux],{encoding:'utf8',timeout:2000}));
  if(!prompt||prompt.key!==data?.key)throw error('終端機上的選單已經換了，請重新看一次。',409);
  const keys=data.cancel===true?['Escape']:Number.isInteger(data.index)&&data.index>=0&&data.index<prompt.options.length?terminalPrompt.keysFor(prompt,data.index):null;
  if(!keys)throw error('選項不正確');
@@ -1294,6 +1309,9 @@ function bridge(c,action,data={}) {
  // A session that read its bootstrap has its channel working. A session that then
  // says ready is not among its tools and stops there would stay starting for good;
  // bootstrap completes the handshake too, and ready stays harmless when it follows.
+ // The channel polls from the moment it starts, so the address is known before the
+ // model has called any tool; it saves only when the address is new.
+ if(platform.isWin&&(action==='bootstrap'||action==='ready'||action==='poll'))registerAddress(c,g,data.address);
  if(action==='bootstrap'){if(['starting','error'].includes(g.phase)&&!g.compacting){markReady(c,g);save(c);}return {profile:agentProfile.profile(c),memory:c.memory,handoff:c.handoff||null,reference:referenceInfo(c),checklists:checklists.summary(c)};}
  if(action==='poll') {
   // The channel of this generation is asking for messages, so its session is alive: an
@@ -1557,7 +1575,7 @@ function bridge(c,action,data={}) {
   let changed=false;
   // While compacting, the screen also carries its progress (compactScreen.js),
   // kept in memory only, like the heartbeat itself.
-  if(g.manualCompact||g.compacting){try{const screen=execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-pt',g.tmux],{encoding:'utf8',timeout:1000});
+  if(g.manualCompact||g.compacting){try{const screen=execFileSync('tmux',['-L',tmuxSocket,'capture-pane',...platform.CAPTURE,g.tmux],{encoding:'utf8',timeout:1000});
    g.compactPercent=compactScreen.compactPercent(screen);
    // Claude Code also fires PreCompact for a summary it precomputes in the
    // background while the agent keeps working; that one never draws
@@ -1584,7 +1602,7 @@ function bridge(c,action,data={}) {
 function confirmWorkspace(c){
  if(c.mode!=='claude')throw error('模擬模式不需要工作目錄確認。',403);
  const g=active(c),dir=path.join(stateRoot,'workspaces',c.id,'g'+g.number);
- const screen=execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-pt',g.tmux],{encoding:'utf8',timeout:2000});
+ const screen=execFileSync('tmux',['-L',tmuxSocket,'capture-pane',...platform.CAPTURE,g.tmux],{encoding:'utf8',timeout:2000});
  if(!screen.includes('Accessing workspace:')||!screen.includes('Yes, I trust this folder')||!screen.replace(/\s/g,'').includes(dir.replace(/\s/g,'')))throw error('目前不是此對話工作目錄的確認畫面。',409);
  if(screen.includes('❯ No, exit'))execFileSync('tmux',['-L',tmuxSocket,'send-keys','-t',g.tmux,'Down'],{timeout:2000});
  else if(!screen.includes('❯ Yes, I trust this folder'))throw error('無法確認目前選项，請在終端機操作。',409);
@@ -1593,7 +1611,7 @@ function confirmWorkspace(c){
 function confirmChannel(c){
  if(c.mode!=='claude')throw error('模擬模式不需要 Channel 確認。',403);
  const g=active(c);
- const screen=execFileSync('tmux',['-L',tmuxSocket,'capture-pane','-pt',g.tmux],{encoding:'utf8',timeout:2000});
+ const screen=execFileSync('tmux',['-L',tmuxSocket,'capture-pane',...platform.CAPTURE,g.tmux],{encoding:'utf8',timeout:2000});
  if(!screen.includes('WARNING: Loading development channels')||!screen.includes('Channels: server:executive')||!screen.includes('1. I am using this for local development'))throw error('目前不是本機開發 Channel 確認畫面，未送出任何按鍵。',409);
  execFileSync('tmux',['-L',tmuxSocket,'send-keys','-t',g.tmux,'Enter'],{timeout:2000});g.phase='starting';g.startedAt=Date.now();save(c);
 }
@@ -1637,7 +1655,8 @@ function mcpServerNames(c){
    const conf=JSON.parse(fs.readFileSync(path.join(require('node:os').homedir(),'.claude.json'),'utf8'));
    const cwd=path.join(stateRoot,'workspaces',c.id,'g'+active(c).number);
    for(const n of Object.keys(conf.mcpServers||{}))names.add(n);
-   for(const n of Object.keys(conf.projects?.[cwd]?.mcpServers||{}))names.add(n);
+   // Claude keys a project by its path, with either slash on Windows.
+   for(const key of platform.isWin?new Set([cwd,cwd.replace(/\\/g,'/')]):[cwd])for(const n of Object.keys(conf.projects?.[key]?.mcpServers||{}))names.add(n);
   }catch{}
   for(const n of transcript.connectors(stateRoot,c))names.add(n);
  }
@@ -1889,20 +1908,20 @@ function launcherProblem(exe){
  let real,st;try{real=fs.realpathSync.native(exe);st=fs.statSync(real);fs.accessSync(real,fs.constants.X_OK);}catch{return '找不到這個執行檔，或沒有執行權限';}
  if(!st.isFile())return '指令必須是一個執行檔';
  const uid=process.getuid?.(),folder=fs.statSync(path.dirname(real));
- if((uid!==undefined&&![uid,0].includes(st.uid))||(st.mode&0o022)||(folder.mode&0o022))return '指令的執行檔必須屬於這個服務的帳號，而且其他人不能修改';
+ if(platform.isWin?platform.othersCanChange(real):(uid!==undefined&&![uid,0].includes(st.uid))||(st.mode&0o022)||(folder.mode&0o022))return '指令的執行檔必須屬於這個服務的帳號，而且其他人不能修改';
  if(agentWritable(real))return '指令不能放在 agent 寫得到的地方';
  return null;
 }
 // Somewhere an agent can write: CC Agent's data, /tmp, or a folder granted to an agent.
 function agentWritable(real){
  const home=require('node:os').homedir(),real_=p=>{try{return fs.realpathSync.native(p);}catch{return path.resolve(p);}};
- const unsafe=[stateRoot,'/tmp','/private/tmp',...state.conversations.filter(c=>!c.archived).flatMap(c=>agentAccess.of(c).allow.map(a=>a.replace(/^~(?=$|\/)/,home)))].map(real_);
- return unsafe.some(root=>real===root||real.startsWith(root+'/'));
+ const unsafe=[stateRoot,'/tmp','/private/tmp',...(platform.isWin?[platform.tmpBase()]:[]),...state.conversations.filter(c=>!c.archived).flatMap(c=>agentAccess.of(c).allow.map(a=>a.replace(/^~(?=$|\/)/,home)))].map(real_);
+ return unsafe.some(root=>real===root||real.startsWith(root+path.sep));
 }
 // A built-in check's arguments that name a file or folder may not point where an
 // agent writes: the tool would run what the agent put there.
 function checkArgumentProblem(arg){
- if(typeof arg!=='string'||!/^[~/.]/.test(arg))return null;
+ if(typeof arg!=='string'||!(/^[~/.]/.test(arg)||(platform.isWin&&/^(?:[a-z]:|\\)/i.test(arg))))return null;
  // The native call returns the path as the volume has it: on a case-insensitive one an
  // argument typed in another case would otherwise slip past agentWritable (the program
  // itself was already checked this way).
@@ -1992,7 +2011,7 @@ function reviveSilentChannels({now=Date.now(),relaunch=(c)=>{stop(c);launch(c);}
  }
 }
 setInterval(()=>{try{reviveSilentChannels();}catch(e){console.error('channel revive: '+e.message);}},60_000).unref();
-function getPreferences(owner){return {wrapUp:wrapUpSettings(ownerLanguage(owner)),archiveRetentionDays:archiveRetentionDays(),compactThreshold:state.agentSettings?.compactThreshold??5,terminalSwitch:state.agentSettings?.terminalSwitch===true,transcriptSwitch:state.agentSettings?.transcriptSwitch===true};}
+function getPreferences(owner){return {...(platform.isWin?{scopedAgents:false}:{}),wrapUp:wrapUpSettings(ownerLanguage(owner)),archiveRetentionDays:archiveRetentionDays(),compactThreshold:state.agentSettings?.compactThreshold??5,terminalSwitch:state.agentSettings?.terminalSwitch===true,transcriptSwitch:state.agentSettings?.transcriptSwitch===true};}
 function setPreferences(owner,{compactThreshold,terminalSwitch,transcriptSwitch,archiveRetentionDays:retention,wrapUp,...rest}={}){
  // Unsupported settings are refused, never ignored.
  if(Object.keys(rest).length)throw error('不支援的設定：'+Object.keys(rest).join(', '));
