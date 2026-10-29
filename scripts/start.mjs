@@ -6,7 +6,13 @@ import {createRequire} from 'node:module';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 // server/.env first, so its data folder, port and public address apply to everything
 // below (a value already in the environment wins).
+const devGiven=process.env.CC_AGENT_DEV;
 createRequire(import.meta.url)('dotenv').config({path:path.join(root,'server','.env'),quiet:true});
+// Development trust (siteConfig.devMode) is given on the command line only: a line in
+// server/.env would quietly make the dev and test ports trusted origins for the live
+// service. Empty, so server/app.js's own .env read does not bring it back either.
+if(devGiven===undefined&&process.env.CC_AGENT_DEV!==undefined){process.env.CC_AGENT_DEV='';console.warn('CC_AGENT_DEV in server/.env is ignored: set it on the command line while developing.');}
+if(process.env.CC_AGENT_DEV==='1')console.warn('Developing (CC_AGENT_DEV=1): the vite dev server and the test instance ports are trusted origins.');
 const data=path.resolve(process.env.CC_AGENT_DATA_DIR||path.join(root,'.local'));fs.mkdirSync(data,{recursive:true,mode:0o700});
 // With a data folder set (CC_AGENT_DATA_DIR), the audit log goes in it too, under logs/;
 // with the default .local, it stays in server/logs.

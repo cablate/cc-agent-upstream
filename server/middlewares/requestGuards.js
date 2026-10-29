@@ -28,7 +28,7 @@ const alwaysAllowedOrigins = [site.publicOrigin()];
 // during local dev and cors() gates its GETs too, so removing them in dev would
 // break local dev entirely — hence the env split, not a plain deletion.
 // Asked at each request: whether the dev ports count (siteConfig.devMode) can change.
-const devOnlyOrigins = () => site.loopbackPorts().flatMap((port) => [`http://localhost:${port}`, `http://127.0.0.1:${port}`]);
+const devOnlyOrigins = () => [...new Set([...site.loopbackPorts(), ...site.devPorts()])].flatMap((port) => [`http://localhost:${port}`, `http://127.0.0.1:${port}`]);
 
 // Private-range LAN origins. The Host check (siteConfig.isAllowedHost) admits only
 // the public host and loopback, so a request sent to a LAN address never gets here;
