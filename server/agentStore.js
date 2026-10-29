@@ -1290,7 +1290,7 @@ function bridge(c,action,data={}) {
  // heartbeat goes on while the channel is gone. The first poll after a revive is saved,
  // so a restart of this service still knows the channel came back.
  if(action==='poll'){const back=g.revivedAt&&!(g.lastPoll>g.revivedAt);g.lastPoll=Date.now();if(back)save(c);}
- if(action.startsWith('starter-'))return starterOps(c,action,data);
+ if(action==='starter-agents'||action==='starter-start')return starterOps(c,action,data);
  // A session that read its bootstrap has its channel working. A session that then
  // says ready is not among its tools and stops there would stay starting for good;
  // bootstrap completes the handshake too, and ready stays harmless when it follows.
