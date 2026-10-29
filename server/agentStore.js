@@ -527,7 +527,7 @@ function launch(c) {
  // Its own chat's attachments, readable where it runs scoped (a file the owner sent could not be opened).
  const attachDir=attachments.directory(stateRoot,c);fs.mkdirSync(attachDir,{recursive:true,mode:0o700});
  // Only these keys: channel/runner.mjs refuses any unsupported launch key.
- const config={tmuxSocket,peerSend:peerToolsFor(c),reference:referenceDir(c),attachments:attachDir,conversationId:c.id,sessionId:g.sessionId,token:g.token,generation:g.number,server:'http://127.0.0.1:'+require('./siteConfig').servicePort(),root:ROOT,cwd:dir,resume:g.number===1&&!!c.resumeSessionId,memory:c.memory,profile:agentProfile.profile(c),model,effort:agentProfile.profile(c).effort,handoff:c.handoff||null,access,...(ownerIsActiveAdmin(c.owner)?{}:{mcpTickedOnly:true})};
+ const config={tmuxSocket,agentStarter:agentStarter(c),peerSend:peerToolsFor(c),reference:referenceDir(c),attachments:attachDir,conversationId:c.id,sessionId:g.sessionId,token:g.token,generation:g.number,server:'http://127.0.0.1:'+require('./siteConfig').servicePort(),root:ROOT,cwd:dir,resume:g.number===1&&!!c.resumeSessionId,memory:c.memory,profile:agentProfile.profile(c),model,effort:agentProfile.profile(c).effort,handoff:c.handoff||null,access,...(ownerIsActiveAdmin(c.owner)?{}:{mcpTickedOnly:true})};
  const control=controlDir(c,g);fs.mkdirSync(control,{recursive:true,mode:0o700});
  // Earlier launches kept these in the workspace; nothing reads them there any more.
  // A marker left there still means the session has started: carried over as a new
@@ -866,6 +866,43 @@ function peerMentionNote(m){
  return '[The owner named agents on another machine with @: '+xs.map(x=>'@'+clean(x.title)).join('; ')+'. Write to one with peer_send, to "'+xs.map(x=>clean(x.title)).join('" or "')+'" (its machine\'s name for it). Its answer comes back to you as a message from another machine; tell the owner what it says.]\n';
 }
 const peerView=c=>({on:c.peerLink?.on===true,allow:c.peerLink?.allow||[],autoReply:c.peerLink?.autoReply===true,eligible:peerEligible(c),why:peerWhyNot(c),targets:peerOn(c)?peerTargets(c).map(({to,machine,title,agentId,pairId,icon})=>({to,machine,title,agentId,pairId,icon})):[]});
+// Agents that may start other agents, so an agent that sets one up for an account does
+// not need someone to press Start afterwards. Named in the service's own data
+// (agent-starters.json) by conversation id; the agent must
+// itself be a live admin's full-access Claude agent (a scoped one can be written to from
+// a watched chat; review). It starts through launch, as 啟動 does, so the
+// started agent gets its own profile and scope, never the starter's environment.
+function agentStarter(c){
+ let ids=[];try{ids=JSON.parse(fs.readFileSync(path.join(stateRoot,'agent-starters.json'),'utf8')).conversationIds;}catch{}
+ return Array.isArray(ids)&&ids.includes(c.id)&&c.mode==='claude'&&!c.archived&&ownerIsActiveAdmin(c.owner)&&!!launchAccess(c).full;
+}
+// Any account's Claude agents, only of an account that is active now.
+function starterTargets(c){return state.conversations.filter(x=>x.id!==c.id&&!x.archived&&x.mode==='claude'&&activeOwner(x.owner));}
+function starterState(x){
+ const g=active(x);
+ if(g.phase==='stopped')return 'stopped';
+ if(g.phase==='error'){try{execFileSync('tmux',['-L',tmuxSocket,'has-session','-t',g.tmux],{stdio:'ignore',timeout:2000});return 'unresponsive';}catch{return 'stopped';}}
+ return g.phase==='busy'?'busy':g.heartbeat>Date.now()-15000?'running':'unresponsive';
+}
+function starterOps(c,action,data){
+ if(!agentStarter(c))throw error('Not allowed',403);
+ const targets=starterTargets(c),view=x=>({id:x.id,name:x.title||x.name||'',account:activeOwner(x.owner)?.username||'',state:starterState(x),pausedByOwner:!!x.pausedByOwner,pausedForUpdate:!!x.pausedForUpdate});
+ if(action==='starter-agents')return {agents:targets.map(view)};
+ const ids=Array.isArray(data?.ids)?[...new Set(data.ids.filter(id=>typeof id==='string'))].slice(0,20):[];
+ if(!ids.length)throw error('Give the ids of the agents to start');
+ const by=c.title||c.name||'agent';
+ return {results:ids.map(id=>{
+  const x=targets.find(t=>t.id===id);if(!x)return {id,result:'not-found'};
+  // One paused for an update stays paused until the update brings it back (review).
+  if(x.pausedForUpdate)return {...view(x),result:'held-for-update'};
+  const now=starterState(x);if(now!=='stopped')return {...view(x),result:now==='unresponsive'?'refused-unresponsive':'already-running'};
+  const held=!!x.pausedByOwner;
+  try{launch(x);}catch(e){return {...view(x),result:'failed',error:e.message};}
+  add(x,'system','由 '+by+' 啟動'+(held?'（原本是暫停中）':'')+'。',{notice:'started-by',startedBy:c.id});save(x);
+  try{require('./services/audit').audit({action:'agent-start',by:c.id,byName:by,agent:x.id,agentName:x.title||'',owner:x.owner,wasPaused:held});}catch{}
+  return {...view(x),result:'started'};
+ })};
+}
 function stop(c) {
  const g=active(c);
  if(c.mode==='claude') {try{execFileSync('tmux',['-L',tmuxSocket,'kill-session','-t',g.tmux],{timeout:5000,stdio:'ignore'});}catch{}}
@@ -1245,7 +1282,7 @@ const COMPACT_GONE_MS=30000;
 // starting, heartbeat) and channel/hook.mjs (precompact, postcompact, result, failure).
 // Anything else is refused before it touches the agent, its heartbeat included
 // Keep it equal to the actions the channel's sources send.
-const BRIDGE_ACTIONS=new Set(['bootstrap','poll','schedule-propose','schedule-update','schedule-remove','schedule-list','permission-request','permission-ack','post','checklists','checklist','group-post','ready','reply','memory','describe','history','precompact','postcompact','result','failure','error','starting','heartbeat','peer-agents','peer-send','peer-status']);
+const BRIDGE_ACTIONS=new Set(['bootstrap','poll','schedule-propose','schedule-update','schedule-remove','schedule-list','permission-request','permission-ack','post','checklists','checklist','group-post','ready','reply','memory','describe','history','precompact','postcompact','result','failure','error','starting','heartbeat','peer-agents','peer-send','peer-status','starter-agents','starter-start']);
 function bridge(c,action,data={}) {
  if(typeof action!=='string'||!BRIDGE_ACTIONS.has(action))throw error('Unknown bridge action',404);
  const g=active(c);g.heartbeat=Date.now();
@@ -1253,6 +1290,7 @@ function bridge(c,action,data={}) {
  // heartbeat goes on while the channel is gone. The first poll after a revive is saved,
  // so a restart of this service still knows the channel came back.
  if(action==='poll'){const back=g.revivedAt&&!(g.lastPoll>g.revivedAt);g.lastPoll=Date.now();if(back)save(c);}
+ if(action.startsWith('starter-'))return starterOps(c,action,data);
  // A session that read its bootstrap has its channel working. A session that then
  // says ready is not among its tools and stops there would stay starting for good;
  // bootstrap completes the handshake too, and ready stays harmless when it follows.

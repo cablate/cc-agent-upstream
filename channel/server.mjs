@@ -55,6 +55,8 @@ mcp.setRequestHandler(CallToolRequestSchema,async({params})=>{
   for(let i=0;i<10&&result?.status==='queued';i++){await new Promise(ok=>setTimeout(ok,3000));try{result={ok:true,...await bridge(config,'peer-status',{id:result.id})};}catch{break;}}
  }
  else if(params.name==='peer_status')result=await bridge(config,'peer-status',typeof a.id==='string'?{id:a.id}:{});
+ else if(params.name==='agent_list')result=await bridge(config,'starter-agents',{});
+ else if(params.name==='agent_start')result=await bridge(config,'starter-start',{ids:Array.isArray(a.ids)?a.ids:[]});
  else throw new Error('Unknown tool');
  return {content:[{type:'text',text:JSON.stringify(result)}]};
 });
