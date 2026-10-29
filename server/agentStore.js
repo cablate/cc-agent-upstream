@@ -549,7 +549,7 @@ function launch(c) {
   // starts the server. Hand it the agent allowlist, not the service's secrets.
   execFileSync('tmux',['-L',tmuxSocket,'new-session','-d','-s',g.tmux,'-c',dir,quote(process.execPath)+' '+quote(path.join(ROOT,'channel/runner.mjs'))+' '+quote(configPath)],{timeout:5000,env:agentEnv()});
   delete c.pausedByOwner;
-  g.model=config.model;g.effort=config.effort;g.profileHash=null;g.toolPolicy='native-bypass';g.phase='starting';g.ready=false;g.lastError='';g.heartbeat=Date.now();g.startedAt=Date.now();save(c);
+  g.model=config.model;g.effort=config.effort;g.profileHash=null;g.toolPolicy='native-bypass';g.phase='starting';g.ready=false;g.lastError='';g.heartbeat=Date.now();g.startedAt=Date.now();g.launchedAt=Date.now();save(c);
  }catch(e){g.phase='error';g.lastError='tmux 啟動失敗：'+e.message;save(c);throw error(g.lastError,500);}
 }
 // The profile's control is labelled 啟動 / 重新連線 and has to honour both halves.
@@ -1235,7 +1235,7 @@ function pendingReplies(c) {
  return c.messages.filter(m=>m.role==='user'&&m.generation===c.generation&&m.delivery==='delivered'
   &&!(waiting&&(waiting.queued.has(m.id)||!waiting.handed.has(m.id)&&Date.now()-Date.parse(m.deliveredAt||m.at)<ARRIVING_MS)));
 }
-const LIVE_AGAIN=new Set(['Claude session 已中斷（例如重開機後），請重新連線。','Claude 已啟動，但一直沒有完成連線交握。請按重新連線再試一次。']);
+const LIVE_AGAIN=new Set(['Claude session 已中斷（例如重開機後），請重新連線。','Claude 已啟動，但一直沒有完成連線交握。請按重新連線再試一次。','頻道中斷，自動重新連線後仍沒有回來。請按重新連線再試一次。']);
 function markReady(c,g){g.ready=true;g.phase='ready';g.lastError='';g.startedAt=0;const marker=path.join(controlDir(c,g),'started.marker');if(c.mode==='claude')fs.writeFileSync(marker,g.sessionId,{mode:0o600});}
 const COMPACT_SCREEN_GRACE_MS=15000;
 // How long a compaction that was on screen may be gone from it before it is taken as ended.
@@ -1249,6 +1249,10 @@ const BRIDGE_ACTIONS=new Set(['bootstrap','poll','schedule-propose','schedule-up
 function bridge(c,action,data={}) {
  if(typeof action!=='string'||!BRIDGE_ACTIONS.has(action))throw error('Unknown bridge action',404);
  const g=active(c);g.heartbeat=Date.now();
+ // When the channel last asked for messages (reviveSilentChannels): the runner's own
+ // heartbeat goes on while the channel is gone. The first poll after a revive is saved,
+ // so a restart of this service still knows the channel came back.
+ if(action==='poll'){const back=g.revivedAt&&!(g.lastPoll>g.revivedAt);g.lastPoll=Date.now();if(back)save(c);}
  // A session that read its bootstrap has its channel working. A session that then
  // says ready is not among its tools and stops there would stay starting for good;
  // bootstrap completes the handshake too, and ready stays harmless when it follows.
@@ -1897,6 +1901,59 @@ function relaunchMarked(){
  }
 }
 setInterval(relaunchMarked,30_000).unref();
+// An agent whose Claude still runs (its runner's heartbeat goes on) while its channel has
+// stopped asking for messages: nothing reaches it from the chat, and it shows as not
+// connected for good. Seen 2026-10-29: two agents started during a busy restart lost
+// their channel process ten seconds in and stayed offline for four days (the owner's
+// report). It is started again with its conversation when nothing is in hand: not in a
+// turn, no message handed over and unanswered, no terminal prompt or web terminal open.
+// A message still waiting to be handed over waits through the restart. Silent on two
+// checks in a row; one agent a check, the longest silent first, none while another
+// start is fresh; at most once in ten minutes for one agent. A channel that does not
+// come back after a restart is not tried again: the agent shows why (the review).
+const CHANNEL_SILENT_MS=3*60000,CHANNEL_REVIVE_GAP_MS=10*60000,CHANNEL_START_GAP_MS=2*60000,serviceStartedAt=Date.now();
+const CHANNEL_LOST='頻道中斷，自動重新連線後仍沒有回來。請按重新連線再試一次。';
+const tmuxClients=(g)=>{try{return execFileSync('tmux',['-L',tmuxSocket,'list-clients','-t',g.tmux],{encoding:'utf8',timeout:2000,stdio:['ignore','pipe','ignore']}).trim()!=='';}catch{return false;}};
+function reviveSilentChannels({now=Date.now(),relaunch=(c)=>{stop(c);launch(c);},attached=tmuxClients}={}){
+ const due=[];
+ for(const c of state.conversations){
+  try{
+   if(c.archived||c.mode!=='claude'||c.pausedByOwner||c.pausedForUpdate)continue;
+   const g=active(c);
+   const silent=['starting','ready','error','busy'].includes(g.phase)&&!g.compacting&&!g.manualCompact&&g.heartbeat>now-STALE_MS
+    &&Math.max(g.lastPoll||0,g.launchedAt||0,serviceStartedAt)<=now-CHANNEL_SILENT_MS;
+   if(!silent){g.silentChecks=0;continue;}
+   g.silentChecks=(g.silentChecks||0)+1;
+   if(g.silentChecks<2)continue;
+   if(g.revivedAt&&!(g.lastPoll>g.revivedAt)){if(g.lastError!==CHANNEL_LOST){g.phase='error';g.ready=false;g.lastError=CHANNEL_LOST;save(c);}continue;}
+   if(g.revivedAt>now-CHANNEL_REVIVE_GAP_MS)continue;
+   if(c.messages.some(m=>m.delivery==='delivered')||prompts.get(c.id))continue;
+   const work=transcript.currentWork(stateRoot,c);
+   if(work.inTurn||work.background>0||attached(g))continue;
+   due.push({c,since:Math.max(g.lastPoll||0,g.launchedAt||0)});
+  }catch(e){console.error(`channel check for ${c.id}: ${e.message}`);}
+ }
+ if(!due.length)return [];
+ if(state.conversations.some(x=>!x.archived&&x.mode==='claude'&&active(x).launchedAt>now-CHANNEL_START_GAP_MS))return [];
+ due.sort((a,b)=>a.since-b.since);
+ const c=due[0].c,g=active(c);
+ // stop() takes these away from a stopped agent; a restart keeps them.
+ const waiting=c.messages.filter(m=>m.delivery==='queued').map(m=>m.id),keep={limitResume:g.limitResume,wrapUp:g.wrapUp};
+ console.error(`channel silent for ${c.id}: reconnecting`);
+ g.revivedAt=now;
+ try{
+  relaunch(c);
+  const n=active(c);n.revivedAt=now;n.silentChecks=0;
+  for(const m of c.messages)if(waiting.includes(m.id))m.delivery='queued';
+  if(keep.limitResume!==undefined)n.limitResume=keep.limitResume;
+  if(keep.wrapUp!==undefined)n.wrapUp=keep.wrapUp;
+  save(c);return [c.id];
+ }catch(e){
+  const n=active(c);n.revivedAt=now;n.phase='error';n.ready=false;n.lastError='頻道中斷，自動重新連線失敗：'+e.message;save(c);
+  console.error(`channel revive failed for ${c.id}: ${e.message}`);return [];
+ }
+}
+setInterval(()=>{try{reviveSilentChannels();}catch(e){console.error('channel revive: '+e.message);}},60_000).unref();
 function getPreferences(owner){return {wrapUp:wrapUpSettings(ownerLanguage(owner)),archiveRetentionDays:archiveRetentionDays(),compactThreshold:state.agentSettings?.compactThreshold??5,terminalSwitch:state.agentSettings?.terminalSwitch===true,transcriptSwitch:state.agentSettings?.transcriptSwitch===true};}
 function setPreferences(owner,{compactThreshold,terminalSwitch,transcriptSwitch,archiveRetentionDays:retention,wrapUp,...rest}={}){
  // Unsupported settings are refused, never ignored.
@@ -2456,7 +2513,7 @@ const heldUntil=(x,kind)=>kind==='result'?x.resultPending?.after:kind==='failure
 const pendingScheduleNotifications=(now=Date.now())=>scheduleStore.list().flatMap(x=>Object.entries(NOTIFY_FIELD).filter(([kind,f])=>x[f]&&!(Date.parse(heldUntil(x,kind)||0)>now)).map(([kind])=>({schedule:x,kind})));
 const markScheduleNotified=(id,kind='proposal')=>{scheduleStore.patch(id,{[NOTIFY_FIELD[kind]]:false});};
 const scheduleCheckList=()=>scheduleChecks.list().map(scheduleChecks.view);
-module.exports={peerLinkDigest,peerExchange,peerKey,peerLink,peerConfig,peerWidens,setPeerConfig,peerDraft,peerView,relaunchMarked,tmuxSocket,subagentList,runLimitResumes,runWrapUps,setWrapUp,mentionsFor,commandInGroup,groupList,reorderGroups,groupFor,groupView,createGroup,updateGroup,removeGroup,updateGroupChecklist,sendToGroup,searchGroup,deliverGroups,chooseTerminalOption,updateChecklist:(c,data,by)=>{const r=checklists.apply(c,data,by);save(c);return r;},syncAllRelays,syncRelays,scheduleCheckList,schedulesFor,addSchedule,approveSchedule,updateSchedule,removeSchedule,rejectSchedule,runSchedules,runScheduleNow,testSchedule,SCHEDULE_WAIT_MS,pendingScheduleNotifications,markScheduleNotified,searchMessages,runCommand,commandsFor,setThreshold,listPreferences,setListPreferences,setAvatar,clearAvatar,avatarLocation,AVATAR_MAX_BYTES,clearFullAccessFor,pendingReportNotifications,markReportsNotified,archiveFor,setAccessFor,accessReports:()=>reports.list().map(reportView),accessReport:id=>{const r=reports.get(id);if(!r)throw error('找不到這張報告單',404);return reportView(r);},resolveAccessReport:(id,patch)=>{const r=reports.get(id);if(!r)throw error('找不到這張報告單',404);return reportView(reports.update(id,patch));},grantAccess,reconcile,reconnect,purgeOwner,sweepRetention,stopAgentsOf,bridgeActions:()=>[...BRIDGE_ACTIONS],archivedList,restoreArchived,keepArchived,purgeArchived,archiveRetentionDays,RETENTION_MAX_DAYS,UNSENT_ATTACHMENT_HOURS,STALE_MS,STARTUP_SLOW_MS,STARTUP_LIMIT_MS,messageTranscript,importHistory,interrupt,markViewing,isViewing,attachableFolders,MESSAGE_PAGE,updateProfile,reorder,pendingNotifications,getPreferences,setPreferences,decidePermission,confirmWorkspace,confirmChannel,compact,stateRoot,create,get,list,publicView,launch,stop,send,rotate,bridge,byToken,active,save,error};
+module.exports={reviveSilentChannels,peerLinkDigest,peerExchange,peerKey,peerLink,peerConfig,peerWidens,setPeerConfig,peerDraft,peerView,relaunchMarked,tmuxSocket,subagentList,runLimitResumes,runWrapUps,setWrapUp,mentionsFor,commandInGroup,groupList,reorderGroups,groupFor,groupView,createGroup,updateGroup,removeGroup,updateGroupChecklist,sendToGroup,searchGroup,deliverGroups,chooseTerminalOption,updateChecklist:(c,data,by)=>{const r=checklists.apply(c,data,by);save(c);return r;},syncAllRelays,syncRelays,scheduleCheckList,schedulesFor,addSchedule,approveSchedule,updateSchedule,removeSchedule,rejectSchedule,runSchedules,runScheduleNow,testSchedule,SCHEDULE_WAIT_MS,pendingScheduleNotifications,markScheduleNotified,searchMessages,runCommand,commandsFor,setThreshold,listPreferences,setListPreferences,setAvatar,clearAvatar,avatarLocation,AVATAR_MAX_BYTES,clearFullAccessFor,pendingReportNotifications,markReportsNotified,archiveFor,setAccessFor,accessReports:()=>reports.list().map(reportView),accessReport:id=>{const r=reports.get(id);if(!r)throw error('找不到這張報告單',404);return reportView(r);},resolveAccessReport:(id,patch)=>{const r=reports.get(id);if(!r)throw error('找不到這張報告單',404);return reportView(reports.update(id,patch));},grantAccess,reconcile,reconnect,purgeOwner,sweepRetention,stopAgentsOf,bridgeActions:()=>[...BRIDGE_ACTIONS],archivedList,restoreArchived,keepArchived,purgeArchived,archiveRetentionDays,RETENTION_MAX_DAYS,UNSENT_ATTACHMENT_HOURS,STALE_MS,STARTUP_SLOW_MS,STARTUP_LIMIT_MS,messageTranscript,importHistory,interrupt,markViewing,isViewing,attachableFolders,MESSAGE_PAGE,updateProfile,reorder,pendingNotifications,getPreferences,setPreferences,decidePermission,confirmWorkspace,confirmChannel,compact,stateRoot,create,get,list,publicView,launch,stop,send,rotate,bridge,byToken,active,save,error};
 
 // Account deletion checks the agents an account actually has running.
 module.exports.lifecycleInventory=async()=>({sources:[{provider:"claude",providerLabel:"Claude Code",ok:true}],schedules:state.conversations.filter(c=>!c.archived&&!['stopped','error'].includes(active(c).phase)).map(c=>({id:c.id,ownerUserId:c.owner,provider:"claude",status:active(c).phase,running:active(c).phase==="busy"}))});
